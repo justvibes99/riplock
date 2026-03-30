@@ -152,6 +152,8 @@ export interface TaintNode {
   expression: string;
   line: number;
   column: number;
+  /** File path for cross-file taint nodes (relative to project root) */
+  filePath?: string;
 }
 
 export interface TaintPath {

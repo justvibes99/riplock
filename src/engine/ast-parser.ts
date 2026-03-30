@@ -154,7 +154,7 @@ export async function parseFile(file: FileEntry): Promise<ParsedFile | null> {
 
     treeCache.set(file.absolutePath, result);
 
-    // LRU eviction: Maps maintain insertion order, so oldest entry is first
+    // FIFO eviction: Maps maintain insertion order, so first-inserted entry is evicted
     if (treeCache.size > MAX_CACHE_SIZE) {
       const oldest = treeCache.keys().next().value;
       if (oldest) treeCache.delete(oldest);

@@ -1226,6 +1226,7 @@ export async function findCrossFileTaintPaths(
                 expression: `cross-file: ${calledName}() in ${targetRelative} (param ${paramIdx} → ${sinkCat})`,
                 line: call.startPosition.row + 1,
                 column: call.startPosition.column,
+                filePath: targetRelative,
               },
             ];
 

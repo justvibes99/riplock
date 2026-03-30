@@ -256,15 +256,10 @@ async function runAstChecks(
         severity: info.severity,
         category: 'injection',
         location: {
-          // Extract file path from cross-file intermediate (format: "cross-file: fn() in path/to/file.ts")
-          filePath: (() => {
-            const crossFileNode = path.intermediates.find(n => n.expression.startsWith('cross-file:'));
-            if (crossFileNode) {
-              const match = crossFileNode.expression.match(/in\s+(\S+)/);
-              if (match) return match[1];
-            }
-            return 'unknown';
-          })(),
+          // Use structured filePath from cross-file taint node
+          filePath: path.intermediates.find(n => n.filePath)?.filePath
+            ?? path.source.filePath
+            ?? 'unknown',
           startLine: path.sink.line,
           startColumn: path.sink.column,
         },
