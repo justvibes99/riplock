@@ -4,12 +4,13 @@
 
 **Security scanner — we lock it down so you can let it rip.**
 
-RipLock scans your codebase for security vulnerabilities using AST taint tracking, structural pattern matching, and 537 security checks across 7 languages and 10+ infrastructure platforms. Every finding comes with a plain-English explanation and copy-paste fix.
+RipLock scans your codebase for security vulnerabilities using AST taint tracking, structural pattern matching, and 537 security checks across 7 languages and 10+ infrastructure platforms. It also scans packages *before* you install them to catch supply chain attacks. Every finding comes with a plain-English explanation and copy-paste fix.
 
 ## Quick Start
 
 ```bash
-npx riplock
+npx riplock                               # Scan your code
+npx riplock scan-pkg express axios         # Scan packages before installing
 ```
 
 ## How It Works
@@ -63,6 +64,8 @@ Terraform, Kubernetes, Helm, CloudFormation, Docker, Nginx, Apache, Ansible, Ser
 
 ## Usage
 
+### Scan your code
+
 ```bash
 npx riplock                           # Scan current directory
 npx riplock ./my-project              # Scan a specific path
@@ -72,9 +75,21 @@ npx riplock --sarif                   # SARIF 2.1.0 for GitHub Code Scanning
 npx riplock --ignore SEC007 GIT010    # Skip specific checks
 npx riplock --exclude 'tests/**'      # Exclude files by glob pattern
 npx riplock --no-deps                 # Skip npm audit (faster)
+npx riplock --scan-deps               # Scan installed dependencies (node_modules etc.)
 npx riplock --list-checks             # Show all checks
 npx riplock --verbose                 # Show timing and debug info
 ```
+
+### Scan packages before installing
+
+```bash
+npx riplock scan-pkg express@4.21.2           # Scan an npm package
+npx riplock scan-pkg requests==2.31.0 --pip   # Scan a pip package
+npx riplock scan-pkg lodash moment axios      # Scan multiple packages
+npx riplock scan-pkg express --json           # JSON output for automation
+```
+
+Downloads the package tarball without installing, extracts it to a temp directory, runs 12 supply chain checks (credential exfiltration, reverse shells, install script attacks, obfuscated code, cryptominers, etc.), and cleans up. Use this to vet packages before adding them to your project.
 
 ## What It Catches
 
@@ -100,6 +115,8 @@ npx riplock --verbose                 # Show timing and debug info
 | **PHP** | 9 | SQL injection, file inclusion, register_globals, XSS |
 | **Docker** | 5 | Root containers, secrets in layers, unpinned tags |
 | **CI/CD** | 6 | Script injection, unpinned actions, pull_request_target, permissions |
+
+| **Supply Chain** | 12 | Credential exfiltration, reverse shells, install script attacks, obfuscated code, cryptominers, .pth code execution, DNS exfiltration, system persistence |
 
 Run `npx riplock --list-checks` for the full catalog.
 
@@ -201,26 +218,58 @@ Fix any critical or high findings before proceeding.
 
 Your AI assistant will run the scan as part of its workflow, read the findings, and fix them with full context of what the code is supposed to do. This is the best balance of coverage and simplicity.
 
-### Option 3: Automated hook
+### Option 3: Pre-install hook (Claude Code)
 
-Set up a Claude Code hook that runs RipLock after code changes and surfaces findings as warnings in your conversation. Add to your Claude Code settings:
+RipLock ships ready-made Claude Code hooks in the `hooks/` directory. The pre-install hook scans packages with `riplock scan-pkg` before allowing `npm install`, `pip install`, `npx -y`, or `uvx` commands. It also hard-blocks ephemeral package runners (`npx -y`, `uvx`) without version pins, since those have no lockfile.
+
+Copy the hooks and add to your `.claude/settings.json`:
 
 ```json
 {
   "hooks": {
-    "postToolUse": [
-      {
-        "matcher": "Write|Edit",
-        "command": "riplock . --no-deps --severity critical --json 2>/dev/null | node -e \"const d=JSON.parse(require('fs').readFileSync('/dev/stdin','utf8')); if(d.stats.critical>0) console.log('⚠️ RipLock: '+d.stats.critical+' critical findings')\""
-      }
-    ]
+    "PreToolUse": [{
+      "matcher": "Bash",
+      "hooks": [{
+        "type": "command",
+        "command": "/path/to/hooks/check-install-safety.sh",
+        "timeout": 60,
+        "statusMessage": "Scanning packages for malware..."
+      }]
+    }],
+    "PostToolUse": [{
+      "matcher": "Write|Edit",
+      "hooks": [{
+        "type": "command",
+        "command": "/path/to/hooks/check-supply-chain.sh",
+        "timeout": 10,
+        "statusMessage": "Checking for supply chain risks..."
+      }]
+    }]
   }
 }
 ```
 
-This runs a fast critical-only scan after every file edit and warns you immediately if something dangerous is introduced.
+The pre-install hook downloads and scans packages before installation. The post-write hook catches supply chain risks in config files (unpinned MCP servers, `*`/`latest` dependencies, install scripts).
 
-### Option 4: Claude Code skill (most powerful)
+### Option 4: Post-edit scan hook
+
+Surface findings as warnings after every code change:
+
+```json
+{
+  "hooks": {
+    "PostToolUse": [{
+      "matcher": "Write|Edit",
+      "hooks": [{
+        "type": "command",
+        "command": "riplock . --no-deps --severity critical --json 2>/dev/null | node -e \"const d=JSON.parse(require('fs').readFileSync('/dev/stdin','utf8')); if(d.stats.critical>0) console.log('⚠️ RipLock: '+d.stats.critical+' critical findings')\""
+      }]
+    }]
+  }
+}
+```
+
+### Option 5: Claude Code skill (most powerful)
 
 Create `~/.claude/skills/security-review.md` to get a `/security-review` slash command that combines RipLock's systematic scan with Claude's contextual review:
 
@@ -238,7 +287,7 @@ user-invocable: true
 Run RipLock against the current project:
 
 \`\`\`bash
-node ~/code/riplock/dist/index.js . --no-deps --json
+npx riplock . --no-deps --json
 \`\`\`
 
 Parse the JSON output. Summarize findings by severity with the top 5 most
@@ -285,7 +334,7 @@ Findings with 4+ occurrences are automatically grouped with the top 3 examples s
 - **Cross-file taint beyond 3 levels** — deep call chains through many modules
 - **Business logic flaws** — authorization errors that require understanding your app's intent
 - **Runtime behavior** — memory leaks, timing attacks in practice
-- **Dependency confusion / typosquatting** — requires npm registry queries
+- **Typosquatting** — detecting that `lod-ash` is not `lodash` requires registry metadata
 - **Cloud console settings** — configurations not captured in IaC
 
 ## License
