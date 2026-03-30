@@ -1,0 +1,62 @@
+{
+  "name": "riplock",
+  "version": "2.0.0",
+  "description": "Security scanner with AST taint tracking — we're watching your back so you can let it rip",
+  "type": "module",
+  "bin": {
+    "riplock": "./dist/index.js"
+  },
+  "files": [
+    "dist",
+    "dist/rules"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsx src/index.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "prepublishOnly": "npm run build && npm test"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "security",
+    "scanner",
+    "sast",
+    "vulnerability",
+    "taint-analysis",
+    "ast",
+    "tree-sitter",
+    "secrets",
+    "injection",
+    "owasp",
+    "cli"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/justvibes99/riplock"
+  },
+  "homepage": "https://github.com/justvibes99/riplock",
+  "license": "MIT",
+  "dependencies": {
+    "commander": "^13.1.0",
+    "fast-glob": "^3.3.3",
+    "picocolors": "^1.1.1",
+    "web-tree-sitter": "0.26.7",
+    "tree-sitter-javascript": "0.25.0",
+    "tree-sitter-typescript": "0.23.2",
+    "tree-sitter-python": "0.25.0",
+    "tree-sitter-go": "0.25.0",
+    "tree-sitter-ruby": "0.23.1",
+    "tree-sitter-php": "0.24.2",
+    "@ast-grep/napi": "0.42.0"
+  },
+  "devDependencies": {
+    "@types/node": "22.13.14",
+    "tsup": "^8.4.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.1.0"
+  }
+}

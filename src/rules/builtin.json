@@ -1,0 +1,3487 @@
+{
+  "rules": [
+    {
+      "id": "RULE-JS001",
+      "message": "ReDoS: Regex with nested quantifiers can cause catastrophic backtracking",
+      "severity": "high",
+      "category": "dos",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "new\\s+RegExp\\s*\\([^)]*[+*]\\\\?[)}\\]]*[+*]",
+      "fix": "Rewrite the regex to avoid nested quantifiers (e.g., (a+)+ or (a*)*). Use atomic groups or possessive quantifiers where available, or validate input length first."
+    },
+    {
+      "id": "RULE-JS002",
+      "message": "ReDoS: Regex with overlapping alternation can cause exponential backtracking",
+      "severity": "high",
+      "category": "dos",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "/\\([^)]*\\|[^)]*\\)[+*](?:\\?)?/",
+      "fix": "Refactor the regex alternation so branches don't overlap. Consider using a trie or prefix factoring."
+    },
+    {
+      "id": "RULE-JS003",
+      "message": "ReDoS: Greedy quantifier followed by same character class risks catastrophic backtracking",
+      "severity": "medium",
+      "category": "dos",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "/\\.[*+]\\.[*+]/",
+      "fix": "Use possessive quantifiers or atomic groups if available. Limit input length before regex matching."
+    },
+    {
+      "id": "RULE-JS004",
+      "message": "ReDoS: User-controlled input passed to RegExp constructor without length limit",
+      "severity": "high",
+      "category": "dos",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "new\\s+RegExp\\s*\\(\\s*(?:req\\.|params\\.|query\\.|body\\.|input|args)",
+      "exclude-pattern": "escapeRegExp|escape_regex|sanitize|length\\s*[<>]|slice\\(|substring\\(",
+      "fix": "Escape user input with a function like escapeRegExp() before passing to new RegExp(). Also enforce a maximum length on the input."
+    },
+    {
+      "id": "RULE-JS005",
+      "message": "ReDoS: String.match/search/replace with user-controlled regex pattern",
+      "severity": "high",
+      "category": "dos",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "\\.(?:match|search|replace)\\s*\\(\\s*(?:req\\.|params\\.|query\\.|body\\.|input|user)",
+      "fix": "Never pass user input directly to .match()/.search()/.replace() as a regex. Use string methods like .includes() or .indexOf() instead."
+    },
+    {
+      "id": "RULE-JS006",
+      "message": "ReDoS: Regex with repetition of optional group (a?)+ pattern",
+      "severity": "high",
+      "category": "dos",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "/\\([^)]*\\?\\)[+*]/",
+      "fix": "Patterns like (a?)+ cause exponential backtracking. Rewrite to avoid optional elements inside repeated groups."
+    },
+    {
+      "id": "RULE-JS007",
+      "message": "ReDoS: Regex with unbounded repetition inside lookahead",
+      "severity": "medium",
+      "category": "dos",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "/\\(\\?[=!][^)]*[+*][^)]*\\)/",
+      "fix": "Unbounded quantifiers inside lookaheads can cause excessive backtracking. Limit the quantifier or restructure the pattern."
+    },
+    {
+      "id": "RULE-JS008",
+      "message": "ReDoS: Regex with .* followed by character class containing dot-match",
+      "severity": "medium",
+      "category": "dos",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "/\\.\\*[^/]*\\[[^\\]]*\\.\\*[^/]*/",
+      "fix": "The pattern .*[...] where brackets overlap with dot can cause quadratic backtracking. Use more specific character classes."
+    },
+    {
+      "id": "RULE-JS009",
+      "message": "ReDoS: Regex with repeated capturing group referencing itself",
+      "severity": "high",
+      "category": "dos",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "/\\([^)]+\\)\\\\[0-9]+[+*]/",
+      "fix": "Backreference inside a repeated group causes exponential backtracking. Restructure the pattern to avoid this."
+    },
+    {
+      "id": "RULE-JS010",
+      "message": "ReDoS: Regex with nested repetition operators (e.g., \\w+\\w+)",
+      "severity": "medium",
+      "category": "dos",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "/\\\\[wds][+*]\\\\[wds][+*]/",
+      "fix": "Adjacent quantified shorthand classes (like \\w+\\w+) cause quadratic behavior. Merge them into a single quantified expression."
+    },
+    {
+      "id": "RULE-JS011",
+      "message": "XSS: document.location assignment with dynamic value",
+      "severity": "high",
+      "category": "injection",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "document\\.location\\s*=\\s*(?!['\"](https?://|/)[^'\"]*['\"])",
+      "exclude-pattern": "encodeURI|sanitize|allowlist|whitelist",
+      "fix": "Validate the URL against an allowlist before setting document.location. Never assign user-controlled values directly."
+    },
+    {
+      "id": "RULE-JS012",
+      "message": "XSS: window.open with user-controlled URL",
+      "severity": "high",
+      "category": "injection",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "window\\.open\\s*\\(\\s*(?:req\\.|params\\.|query\\.|body\\.|input|user|`[^`]*\\$\\{)",
+      "fix": "Validate URLs passed to window.open() against an allowlist of trusted domains. Block javascript: and data: URL schemes."
+    },
+    {
+      "id": "RULE-JS013",
+      "message": "XSS: postMessage without target origin restriction",
+      "severity": "medium",
+      "category": "injection",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "\\.postMessage\\s*\\([^)]+,\\s*['\"]\\*['\"]\\s*\\)",
+      "fix": "Replace the '*' target origin with the specific origin of the intended recipient. Using '*' allows any window to receive the message."
+    },
+    {
+      "id": "RULE-JS014",
+      "message": "XSS: message event handler without origin check",
+      "severity": "high",
+      "category": "injection",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "addEventListener\\s*\\(\\s*['\"]message['\"]",
+      "exclude-pattern": "origin\\s*[!=]==?|event\\.origin|e\\.origin|msg\\.origin",
+      "fix": "Always verify event.origin in message event handlers before processing the data. Without origin checks, any page can send messages to your application."
+    },
+    {
+      "id": "RULE-JS015",
+      "message": "XSS: outerHTML assignment with dynamic value",
+      "severity": "high",
+      "category": "injection",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "\\.outerHTML\\s*=\\s*(?!['\"](<!DOCTYPE|<html|<div)[^'\"]*['\"])",
+      "exclude-pattern": "DOMPurify|sanitize|textContent",
+      "fix": "Use textContent for plain text or sanitize with DOMPurify before assigning to outerHTML."
+    },
+    {
+      "id": "RULE-JS016",
+      "message": "XSS: insertAdjacentHTML with dynamic content",
+      "severity": "high",
+      "category": "injection",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "\\.insertAdjacentHTML\\s*\\(",
+      "exclude-pattern": "DOMPurify|sanitize",
+      "fix": "Sanitize HTML content with DOMPurify before passing to insertAdjacentHTML. Use insertAdjacentText for plain text."
+    },
+    {
+      "id": "RULE-JS017",
+      "message": "XSS: document.writeln with dynamic content",
+      "severity": "medium",
+      "category": "injection",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "document\\.writeln\\s*\\(",
+      "exclude-pattern": "DOMPurify|sanitize",
+      "fix": "Replace document.writeln() with DOM manipulation methods. Use textContent for text or DOMPurify for HTML."
+    },
+    {
+      "id": "RULE-JS018",
+      "message": "SSRF: axios request with user-controlled URL",
+      "severity": "critical",
+      "category": "ssrf",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "axios\\s*(?:\\(|\\.(?:get|post|put|patch|delete|head|options|request))\\s*\\(\\s*(?:`[^`]*\\$\\{|req\\.|params\\.|query\\.|body\\.|input|user)",
+      "exclude-pattern": "allowlist|whitelist|ALLOWED_HOSTS|validUrl",
+      "fix": "Validate user-provided URLs against an allowlist of trusted domains. Block private IP ranges (10.x, 172.16-31.x, 192.168.x, 127.x, 169.254.169.254)."
+    },
+    {
+      "id": "RULE-JS019",
+      "message": "SSRF: got() request with user-controlled URL",
+      "severity": "critical",
+      "category": "ssrf",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "got\\s*(?:\\.(?:get|post|put|patch|delete|head))?\\s*\\(\\s*(?:`[^`]*\\$\\{|req\\.|params\\.|query\\.|body\\.|input|user)",
+      "exclude-pattern": "allowlist|whitelist|ALLOWED_HOSTS",
+      "fix": "Validate the URL against an allowlist before making the request. Block internal/private IP ranges."
+    },
+    {
+      "id": "RULE-JS021",
+      "message": "SSRF: http.request/https.request with user-controlled options",
+      "severity": "critical",
+      "category": "ssrf",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "(?:http|https)\\.(?:request|get)\\s*\\(\\s*(?:req\\.|params\\.|query\\.|body\\.|input|user)",
+      "exclude-pattern": "allowlist|whitelist|ALLOWED_HOSTS",
+      "fix": "Validate host/URL before making requests. Block private IP ranges and metadata endpoints."
+    },
+    {
+      "id": "RULE-JS023",
+      "message": "Cookie set without Secure flag",
+      "severity": "medium",
+      "category": "network",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "res\\.cookie\\s*\\([^)]+\\{[^}]*(?!secure\\s*:\\s*true)",
+      "exclude-pattern": "secure\\s*:\\s*true|Secure",
+      "fix": "Set the Secure flag on cookies to ensure they are only sent over HTTPS."
+    },
+    {
+      "id": "RULE-JS024",
+      "message": "Cookie set without SameSite attribute",
+      "severity": "medium",
+      "category": "network",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "res\\.cookie\\s*\\([^)]+\\{[^}]*\\}",
+      "exclude-pattern": "sameSite|samesite|SameSite",
+      "fix": "Set the SameSite attribute on cookies (Lax or Strict) to protect against CSRF attacks."
+    },
+    {
+      "id": "RULE-JS025",
+      "message": "Sensitive data stored in localStorage",
+      "severity": "high",
+      "category": "data-exposure",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "localStorage\\.setItem\\s*\\(\\s*['\"](?:password|token|secret|apiKey|api_key|access_token|refresh_token|auth|session|jwt|credential|private_key|ssn|credit_card)",
+      "fix": "Never store sensitive data in localStorage as it is accessible to any JavaScript on the page. Use HttpOnly cookies for auth tokens."
+    },
+    {
+      "id": "RULE-JS026",
+      "message": "Sensitive data stored in sessionStorage",
+      "severity": "medium",
+      "category": "data-exposure",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "sessionStorage\\.setItem\\s*\\(\\s*['\"](?:password|token|secret|apiKey|api_key|access_token|refresh_token|auth|jwt|credential|private_key)",
+      "fix": "Avoid storing sensitive data in sessionStorage. Use HttpOnly cookies for authentication tokens."
+    },
+    {
+      "id": "RULE-JS029",
+      "message": "JSON.parse of user input without try/catch",
+      "severity": "medium",
+      "category": "injection",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "JSON\\.parse\\s*\\(\\s*(?:req\\.body|req\\.query|params\\.|event\\.body|request\\.body)",
+      "exclude-pattern": "try|catch|JSON\\.safeParse|safeJSON",
+      "fix": "Wrap JSON.parse of user input in a try/catch block. Malformed JSON will throw and may crash your application."
+    },
+    {
+      "id": "RULE-JS031",
+      "message": "GraphQL introspection enabled in production",
+      "severity": "medium",
+      "category": "data-exposure",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "introspection\\s*:\\s*true",
+      "fix": "Disable GraphQL introspection in production to prevent attackers from discovering your full API schema. Enable it only in development."
+    },
+    {
+      "id": "RULE-JS032",
+      "message": "GraphQL query depth not limited",
+      "severity": "medium",
+      "category": "dos",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "(?:ApolloServer|createServer|new\\s+GraphQLServer)\\s*\\(\\s*\\{",
+      "exclude-pattern": "depthLimit|queryDepth|maxDepth|validationRules",
+      "fix": "Add a query depth limit to your GraphQL server to prevent deeply nested queries that can cause DoS."
+    },
+    {
+      "id": "RULE-JS033",
+      "message": "Missing rate limiting on API route",
+      "severity": "medium",
+      "category": "dos",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "(?:app|router)\\s*\\.(?:post|put|patch|delete)\\s*\\(\\s*['\"](?:/api/|/auth/|/login|/register|/signup|/password)",
+      "exclude-pattern": "rateLimit|rateLimiter|throttle|slowDown|limiter",
+      "fix": "Apply rate limiting to authentication and mutation endpoints. Use express-rate-limit, @nestjs/throttler, or similar middleware."
+    },
+    {
+      "id": "RULE-JS034",
+      "message": "WebSocket connection without origin validation",
+      "severity": "high",
+      "category": "network",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "new\\s+(?:WebSocket\\.Server|WebSocketServer|Server)\\s*\\(\\s*\\{",
+      "exclude-pattern": "verifyClient|origin|handleProtocols|authenticate",
+      "fix": "Validate the WebSocket connection origin using the verifyClient callback. Without origin checks, any website can connect to your WebSocket server."
+    },
+    {
+      "id": "RULE-JS035",
+      "message": "WebSocket message handler without input validation",
+      "severity": "medium",
+      "category": "injection",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "ws\\.on\\s*\\(\\s*['\"]message['\"]\\s*,\\s*(?:function|\\(|async)",
+      "exclude-pattern": "validate|schema|parse|zod|joi|yup|ajv",
+      "fix": "Validate and parse WebSocket messages against a schema. Never trust incoming WebSocket data."
+    },
+    {
+      "id": "RULE-JS036",
+      "message": "CSRF: Form without CSRF token",
+      "severity": "high",
+      "category": "auth",
+      "languages": [
+        "javascript",
+        "typescript",
+        "html"
+      ],
+      "pattern": "<form[^>]*method\\s*=\\s*['\"]post['\"][^>]*>",
+      "exclude-pattern": "csrf|_csrf|csrfToken|xsrf|_token|authenticity_token|__RequestVerificationToken",
+      "fix": "Include a CSRF token in all forms that submit via POST. Use csurf (Express), @nestjs/csrf, or framework-specific CSRF protection."
+    },
+    {
+      "id": "RULE-JS037",
+      "message": "Unsafe file permissions: chmod 777 or 0o777",
+      "severity": "high",
+      "category": "config",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "(?:chmod|chmodSync|fchmod|fchmodSync)\\s*\\([^)]*(?:0?o?777|0?o?766|0?o?667)",
+      "fix": "Never set file permissions to 777 (world-writable). Use the minimum required permissions (e.g., 0o644 for files, 0o755 for executables)."
+    },
+    {
+      "id": "RULE-JS038",
+      "message": "Writing to /tmp without unique filename (symlink attack risk)",
+      "severity": "medium",
+      "category": "injection",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "(?:writeFile|writeFileSync|createWriteStream)\\s*\\(\\s*['\"](?:/tmp/|\\\\tmp\\\\)",
+      "exclude-pattern": "mkdtemp|tmpdir|tmp\\.file|tmp\\.dir|randomUUID|uuid|crypto\\.random",
+      "fix": "Use os.tmpdir() with a unique subdirectory created via fs.mkdtemp() instead of hardcoded /tmp paths. This prevents symlink attacks."
+    },
+    {
+      "id": "RULE-JS040",
+      "message": "Hardcoded IP address in source code",
+      "severity": "low",
+      "category": "config",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "['\"]\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}['\"]",
+      "exclude-pattern": "127\\.0\\.0\\.1|0\\.0\\.0\\.0|localhost|test|spec|mock|fixture|example|192\\.168\\.\\d+\\.\\d+.*(?:test|spec|example)",
+      "fix": "Move IP addresses to configuration files or environment variables. Hardcoded IPs make deployment and environment changes difficult.",
+      "paths": {
+        "exclude": [
+          "**/*.test.*",
+          "**/*.spec.*",
+          "**/test/**",
+          "**/tests/**"
+        ]
+      }
+    },
+    {
+      "id": "RULE-JS042",
+      "message": "Stack trace exposed in error response",
+      "severity": "medium",
+      "category": "data-exposure",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "(?:res\\.(?:json|send|status).*(?:err\\.stack|error\\.stack|e\\.stack|stack\\s*:|stackTrace)|err\\.stack|error\\.stack)",
+      "exclude-pattern": "development|dev|NODE_ENV|test|spec",
+      "fix": "Never expose stack traces to clients in production. Return generic error messages and log stack traces server-side only.",
+      "paths": {
+        "exclude": [
+          "**/*.test.*",
+          "**/*.spec.*",
+          "**/test/**"
+        ]
+      }
+    },
+    {
+      "id": "RULE-JS043",
+      "message": "Insecure random number generation with Math.random()",
+      "severity": "medium",
+      "category": "crypto",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "Math\\.random\\s*\\(\\).*(?:token|secret|password|session|key|nonce|salt|otp|code|pin|csrf|auth)",
+      "fix": "Use crypto.randomBytes(), crypto.randomUUID(), or crypto.getRandomValues() for security-sensitive random values. Math.random() is not cryptographically secure."
+    },
+    {
+      "id": "RULE-JS044",
+      "message": "Math.random() used for ID generation (predictable)",
+      "severity": "medium",
+      "category": "crypto",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "(?:id|uuid|identifier|key)\\s*(?:=|:)\\s*(?:Math\\.random|String\\(Math\\.random)",
+      "fix": "Use crypto.randomUUID() or a library like nanoid for generating IDs. Math.random() produces predictable values."
+    },
+    {
+      "id": "RULE-JS046",
+      "message": "Deprecated crypto API: createCipher (use createCipheriv instead)",
+      "severity": "high",
+      "category": "crypto",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "crypto\\.createCipher\\s*\\(",
+      "exclude-pattern": "createCipheriv",
+      "fix": "Use crypto.createCipheriv() with a random IV instead of the deprecated crypto.createCipher() which uses a fixed IV."
+    },
+    {
+      "id": "RULE-JS047",
+      "message": "Deprecated crypto API: createDecipher (use createDecipheriv instead)",
+      "severity": "high",
+      "category": "crypto",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "crypto\\.createDecipher\\s*\\(",
+      "exclude-pattern": "createDecipheriv",
+      "fix": "Use crypto.createDecipheriv() with the correct IV instead of the deprecated crypto.createDecipher()."
+    },
+    {
+      "id": "RULE-JS048",
+      "message": "Weak hash algorithm: MD5 should not be used for security purposes",
+      "severity": "high",
+      "category": "crypto",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "createHash\\s*\\(\\s*['\"]md5['\"]\\s*\\)",
+      "fix": "Replace MD5 with SHA-256 or SHA-3 for integrity checks. For password hashing, use bcrypt, scrypt, or argon2."
+    },
+    {
+      "id": "RULE-JS049",
+      "message": "Weak hash algorithm: SHA-1 is deprecated for security purposes",
+      "severity": "medium",
+      "category": "crypto",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "createHash\\s*\\(\\s*['\"]sha1?['\"]\\s*\\)",
+      "fix": "Replace SHA-1 with SHA-256 or SHA-3. SHA-1 has known collision attacks."
+    },
+    {
+      "id": "RULE-JS050",
+      "message": "Weak encryption: DES/RC4 algorithms are broken",
+      "severity": "critical",
+      "category": "crypto",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "createCipher(?:iv)?\\s*\\(\\s*['\"](?:des|des-ede|des-ede3|rc4|rc2)['\"]",
+      "fix": "Use AES-256-GCM or ChaCha20-Poly1305 instead of DES/RC4 which are cryptographically broken."
+    },
+    {
+      "id": "RULE-JS051",
+      "message": "ECB mode encryption is insecure (patterns leak through ciphertext)",
+      "severity": "high",
+      "category": "crypto",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "createCipher(?:iv)?\\s*\\(\\s*['\"](?:aes-\\d+-ecb|des-ecb)['\"]",
+      "fix": "Use CBC, CTR, or GCM mode instead of ECB. ECB mode preserves patterns in plaintext, making it insecure."
+    },
+    {
+      "id": "RULE-JS052",
+      "message": "Hardcoded encryption key in source code",
+      "severity": "critical",
+      "category": "crypto",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "(?:createCipher(?:iv)?|createHmac|createSign)\\s*\\([^)]*['\"][A-Za-z0-9+/=]{16,}['\"]",
+      "fix": "Load encryption keys from environment variables or a key management service. Never hardcode keys in source code."
+    },
+    {
+      "id": "RULE-JS053",
+      "message": "JWT without expiration (tokens never expire)",
+      "severity": "high",
+      "category": "auth",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "jwt\\.sign\\s*\\(",
+      "exclude-pattern": "expiresIn|exp|expiration|maxAge|ttl",
+      "fix": "Always set an expiration time on JWTs using the expiresIn option. Tokens without expiration last forever if stolen."
+    },
+    {
+      "id": "RULE-JS054",
+      "message": "JWT signed with 'none' algorithm allows forged tokens",
+      "severity": "critical",
+      "category": "auth",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "algorithm\\s*:\\s*['\"]none['\"]",
+      "fix": "Never allow the 'none' algorithm for JWT signing. Always specify a strong algorithm like RS256 or HS256."
+    },
+    {
+      "id": "RULE-JS055",
+      "message": "CORS wildcard allows any origin",
+      "severity": "high",
+      "category": "network",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "(?:origin\\s*:\\s*['\"]\\*['\"]|Access-Control-Allow-Origin['\"]\\s*,\\s*['\"]\\*['\"])",
+      "exclude-pattern": "development|dev|localhost",
+      "fix": "Replace the CORS wildcard (*) with a list of trusted origins. Wildcard CORS allows any website to make requests to your API."
+    },
+    {
+      "id": "RULE-JS056",
+      "message": "CORS with credentials and wildcard origin is a security risk",
+      "severity": "critical",
+      "category": "network",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "credentials\\s*:\\s*true",
+      "exclude-pattern": "origin\\s*:\\s*(?!true|['\"]\\*['\"]|function)",
+      "fix": "When CORS credentials is true, origin must be a specific domain (not wildcard). Validate origins against an allowlist."
+    },
+    {
+      "id": "RULE-JS058",
+      "message": "setTimeout/setInterval with string argument acts as eval",
+      "severity": "high",
+      "category": "injection",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "(?:setTimeout|setInterval)\\s*\\(\\s*['\"`]",
+      "fix": "Pass a function reference to setTimeout/setInterval instead of a string. String arguments are evaluated like eval()."
+    },
+    {
+      "id": "RULE-JS059",
+      "message": "Unvalidated redirect URL",
+      "severity": "medium",
+      "category": "injection",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "(?:window\\.location\\.href|window\\.location\\.replace|location\\.assign)\\s*(?:=|\\()\\s*(?!['\"]/[^/])",
+      "exclude-pattern": "startsWith\\s*\\(\\s*['\"]/'|allowlist|whitelist|validate|trusted",
+      "fix": "Validate redirect URLs to ensure they are relative paths or belong to trusted domains. Block absolute URLs to prevent open redirects."
+    },
+    {
+      "id": "RULE-JS060",
+      "message": "Sensitive data in URL query parameters (may be logged or cached)",
+      "severity": "medium",
+      "category": "data-exposure",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "(?:fetch|axios|got|http|request|\\$\\.(?:get|post|ajax))\\s*\\([^)]*(?:password|token|secret|api_key|apiKey|access_token|credential)\\s*=",
+      "fix": "Send sensitive data in request headers or body, never in URL query parameters. URLs are logged by proxies, browsers, and servers."
+    },
+    {
+      "id": "RULE-JS061",
+      "message": "Unencrypted HTTP used instead of HTTPS",
+      "severity": "medium",
+      "category": "network",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "(?:fetch|axios|got|http\\.get|request)\\s*\\(\\s*['\"]http://(?!localhost|127\\.0\\.0\\.1|0\\.0\\.0\\.0)",
+      "exclude-pattern": "test|spec|mock|fixture|example|placeholder",
+      "fix": "Use HTTPS instead of HTTP to encrypt data in transit. HTTP connections can be intercepted and modified.",
+      "paths": {
+        "exclude": [
+          "**/*.test.*",
+          "**/*.spec.*",
+          "**/test/**"
+        ]
+      }
+    },
+    {
+      "id": "RULE-JS062",
+      "message": "Child process spawned with shell option enabled",
+      "severity": "high",
+      "category": "injection",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "(?:spawn|exec|execFile)(?:Sync)?\\s*\\([^)]*\\{[^}]*shell\\s*:\\s*true",
+      "fix": "Avoid using shell: true with child_process. Use spawn() or execFile() with an array of arguments instead."
+    },
+    {
+      "id": "RULE-JS063",
+      "message": "Prototype pollution via Object.assign with user input",
+      "severity": "high",
+      "category": "injection",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "Object\\.assign\\s*\\(\\s*(?:\\{\\}|\\w+)\\s*,\\s*(?:req\\.|params\\.|query\\.|body\\.|input|JSON\\.parse)",
+      "fix": "Sanitize user input to remove __proto__, constructor, and prototype keys before using Object.assign."
+    },
+    {
+      "id": "RULE-JS064",
+      "message": "Dynamic import with user-controlled module path",
+      "severity": "critical",
+      "category": "injection",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "(?:import|require)\\s*\\(\\s*(?:req\\.|params\\.|query\\.|body\\.|input|user|`[^`]*\\$\\{)",
+      "fix": "Never allow user input to determine which module is loaded. Use a whitelist mapping of allowed module identifiers."
+    },
+    {
+      "id": "RULE-JS065",
+      "message": "Unserialize/deserialize of untrusted data (node-serialize)",
+      "severity": "critical",
+      "category": "injection",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "(?:serialize|unserialize)\\.(?:unserialize|serialize)\\s*\\(.*(?:req\\.|body\\.|query\\.|cookie)",
+      "fix": "Never use node-serialize to deserialize untrusted data. It can execute arbitrary code. Use JSON.parse() instead."
+    },
+    {
+      "id": "RULE-JS066",
+      "message": "Express trust proxy not configured (IP spoofing risk)",
+      "severity": "medium",
+      "category": "network",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "app\\.(?:set|enable)\\s*\\(\\s*['\"]trust proxy['\"]\\s*,\\s*true\\s*\\)",
+      "fix": "Set 'trust proxy' to a specific number or IP range instead of true. Using true trusts all proxies and allows IP spoofing."
+    },
+    {
+      "id": "RULE-JS067",
+      "message": "Disabled TLS certificate verification (insecure)",
+      "severity": "critical",
+      "category": "network",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "(?:rejectUnauthorized\\s*:\\s*false|NODE_TLS_REJECT_UNAUTHORIZED\\s*=\\s*['\"]0['\"]|process\\.env\\.NODE_TLS_REJECT_UNAUTHORIZED\\s*=\\s*['\"]0['\"])",
+      "fix": "Never disable TLS certificate verification in production. Fix the underlying certificate issue instead."
+    },
+    {
+      "id": "RULE-JS068",
+      "message": "Bcrypt with low cost factor (< 10 rounds)",
+      "severity": "medium",
+      "category": "crypto",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "(?:bcrypt|bcryptjs)\\.(?:hash|hashSync)\\s*\\([^,]+,\\s*(?:[1-9])\\s*\\)",
+      "fix": "Use at least 10 rounds (12+ recommended) for bcrypt. Low round counts make brute-force attacks feasible."
+    },
+    {
+      "id": "RULE-JS069",
+      "message": "Hardcoded JWT secret in source code",
+      "severity": "critical",
+      "category": "secrets",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "jwt\\.sign\\s*\\([^)]+['\"][A-Za-z0-9_\\-!@#$%^&*]{8,}['\"]",
+      "fix": "Load JWT signing secrets from environment variables or a secrets manager. Never hardcode them."
+    },
+    {
+      "id": "RULE-JS070",
+      "message": "Session stored in memory (not suitable for production)",
+      "severity": "medium",
+      "category": "config",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "(?:express-session|session)\\s*\\(\\s*\\{(?:(?!store).)*\\}",
+      "exclude-pattern": "store\\s*:|MemoryStore.*test|development",
+      "fix": "Use a persistent session store (Redis, PostgreSQL, MongoDB) instead of the default memory store. Memory sessions leak memory and are lost on restart."
+    },
+    {
+      "id": "RULE-JS071",
+      "message": "File upload without size limit",
+      "severity": "high",
+      "category": "dos",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "(?:multer|formidable|busboy|multiparty)\\s*\\(",
+      "exclude-pattern": "limits|maxFileSize|maxSize|maxFiles|fileSizeLimit|maxFieldSize",
+      "fix": "Set file upload size limits to prevent denial-of-service attacks. Configure multer limits, formidable maxFileSize, etc."
+    },
+    {
+      "id": "RULE-JS072",
+      "message": "Missing body parser size limit",
+      "severity": "medium",
+      "category": "dos",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "(?:express\\.json|bodyParser\\.json|express\\.urlencoded|bodyParser\\.urlencoded)\\s*\\(",
+      "exclude-pattern": "limit\\s*:|parameterLimit",
+      "fix": "Set a body size limit on your JSON/URL-encoded parsers (e.g., express.json({ limit: '1mb' })) to prevent large payload DoS."
+    },
+    {
+      "id": "RULE-JS073",
+      "message": "SQL query built with string template (Knex/Sequelize raw)",
+      "severity": "high",
+      "category": "injection",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "(?:knex|sequelize)\\.(?:raw|query)\\s*\\(\\s*`[^`]*\\$\\{",
+      "fix": "Use parameterized queries with Knex/Sequelize. Pass values as the second argument array, not interpolated into the string."
+    },
+    {
+      "id": "RULE-JS074",
+      "message": "Lodash merge/defaultsDeep can cause prototype pollution",
+      "severity": "high",
+      "category": "injection",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "_\\.(?:merge|defaultsDeep|set)\\s*\\([^)]*(?:req\\.|body\\.|input|user|JSON\\.parse)",
+      "fix": "Sanitize user input before passing to lodash merge/defaultsDeep. Strip __proto__ and constructor keys."
+    },
+    {
+      "id": "RULE-JS075",
+      "message": "Axios/fetch response data used without validation",
+      "severity": "low",
+      "category": "validation",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "(?:response|res)\\.data\\s*(?:\\.|\\[)",
+      "exclude-pattern": "validate|schema|zod|joi|parse|check|assert|typeof|instanceof",
+      "fix": "Validate external API response data before using it. External responses can be malformed or contain unexpected data."
+    },
+    {
+      "id": "RULE-JS076",
+      "message": "express.static serving from project root (may expose secrets)",
+      "severity": "high",
+      "category": "data-exposure",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "express\\.static\\s*\\(\\s*(?:['\"]\\.['\"]|__dirname|process\\.cwd\\(\\)|path\\.resolve\\(\\)|path\\.join\\(__dirname\\s*\\))",
+      "fix": "Serve static files from a specific subdirectory (e.g., 'public/'), not the project root. The root may contain .env files, source code, and configuration."
+    },
+    {
+      "id": "RULE-JS077",
+      "message": "Disabled HTTPS redirect (app running on HTTP)",
+      "severity": "medium",
+      "category": "network",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "http\\.createServer\\s*\\(",
+      "exclude-pattern": "https|redirect|development|test|localhost",
+      "fix": "Use HTTPS in production. Create an HTTPS server or use a reverse proxy (nginx, Cloudflare) that terminates TLS."
+    },
+    {
+      "id": "RULE-JS078",
+      "message": "Debug mode enabled in production framework",
+      "severity": "medium",
+      "category": "config",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "(?:debug\\s*:\\s*true|DEBUG\\s*=\\s*['\"]\\*['\"]|debug\\s*=\\s*true)",
+      "exclude-pattern": "development|test|NODE_ENV|process\\.env",
+      "fix": "Disable debug mode in production. Debug mode often exposes internal details, stack traces, and request data."
+    },
+    {
+      "id": "RULE-JS079",
+      "message": "Error message exposes internal implementation details",
+      "severity": "low",
+      "category": "data-exposure",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "(?:res\\.(?:json|send)\\s*\\(\\s*\\{[^}]*(?:error|message)\\s*:\\s*(?:err|error|e)\\.message)",
+      "exclude-pattern": "development|NODE_ENV|test|CustomError|AppError",
+      "fix": "Return generic error messages to clients. Log detailed errors server-side only.",
+      "paths": {
+        "exclude": [
+          "**/*.test.*",
+          "**/*.spec.*",
+          "**/test/**"
+        ]
+      }
+    },
+    {
+      "id": "RULE-JS080",
+      "message": "Insecure password hashing: raw SHA/MD5 used for passwords",
+      "severity": "critical",
+      "category": "crypto",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "createHash\\s*\\(\\s*['\"](?:md5|sha1|sha256|sha512)['\"]\\s*\\).*(?:password|passwd|pwd)",
+      "fix": "Use bcrypt, scrypt, or argon2 for password hashing. SHA and MD5 are too fast and vulnerable to brute-force attacks."
+    },
+    {
+      "id": "RULE-PY001",
+      "message": "Django model field without validators",
+      "severity": "low",
+      "category": "python",
+      "languages": [
+        "python"
+      ],
+      "pattern": "(?:CharField|TextField|IntegerField|FloatField|URLField|EmailField)\\s*\\(",
+      "exclude-pattern": "validators\\s*=|validate_|clean|MinValueValidator|MaxValueValidator|RegexValidator|MaxLengthValidator",
+      "fix": "Add validators to Django model fields to enforce data integrity at the model level."
+    },
+    {
+      "id": "RULE-PY002",
+      "message": "Flask route without authentication decorator",
+      "severity": "medium",
+      "category": "python",
+      "languages": [
+        "python"
+      ],
+      "pattern": "@app\\.route\\s*\\(\\s*['\"](?:/api/|/admin/|/dashboard/|/user/|/account/|/settings/)",
+      "exclude-pattern": "@login_required|@auth_required|@jwt_required|@authenticate|@requires_auth|@permission_required|@requires_login|@token_required",
+      "fix": "Add @login_required or equivalent authentication decorator to protected routes."
+    },
+    {
+      "id": "RULE-PY003",
+      "message": "Jinja2 autoescape disabled (XSS risk)",
+      "severity": "high",
+      "category": "python",
+      "languages": [
+        "python"
+      ],
+      "pattern": "(?:Environment|jinja2\\.Environment)\\s*\\([^)]*autoescape\\s*=\\s*False",
+      "fix": "Set autoescape=True (or use select_autoescape) in Jinja2 Environment to prevent XSS."
+    },
+    {
+      "id": "RULE-PY004",
+      "message": "Insecure YAML loading: yaml.load without SafeLoader",
+      "severity": "critical",
+      "category": "python",
+      "languages": [
+        "python"
+      ],
+      "pattern": "yaml\\.load\\s*\\(",
+      "exclude-pattern": "SafeLoader|safe_load|CSafeLoader|FullLoader",
+      "fix": "Use yaml.safe_load() or yaml.load(data, Loader=yaml.SafeLoader) instead of yaml.load(). Unsafe YAML loading can execute arbitrary code."
+    },
+    {
+      "id": "RULE-PY005",
+      "message": "Insecure tempfile: using mktemp (race condition)",
+      "severity": "high",
+      "category": "python",
+      "languages": [
+        "python"
+      ],
+      "pattern": "tempfile\\.mktemp\\s*\\(",
+      "fix": "Use tempfile.mkstemp() or tempfile.NamedTemporaryFile() instead of mktemp(). mktemp is vulnerable to race conditions."
+    },
+    {
+      "id": "RULE-PY006",
+      "message": "Path traversal: os.path.join with user input",
+      "severity": "high",
+      "category": "python",
+      "languages": [
+        "python"
+      ],
+      "pattern": "os\\.path\\.join\\s*\\([^)]*(?:request\\.|input\\(|argv|params|args)",
+      "fix": "Validate that the joined path stays within the expected directory using os.path.commonpath() or pathlib. Reject input containing '..'."
+    },
+    {
+      "id": "RULE-PY007",
+      "message": "Command injection: subprocess with shell=True",
+      "severity": "critical",
+      "category": "python",
+      "languages": [
+        "python"
+      ],
+      "pattern": "subprocess\\.(?:call|run|Popen|check_output|check_call)\\s*\\([^)]*shell\\s*=\\s*True",
+      "fix": "Use subprocess with shell=False and pass arguments as a list. shell=True allows command injection."
+    },
+    {
+      "id": "RULE-PY008",
+      "message": "Hardcoded Django admin URL at /admin/",
+      "severity": "medium",
+      "category": "python",
+      "languages": [
+        "python"
+      ],
+      "pattern": "path\\s*\\(\\s*['\"]admin/['\"]",
+      "fix": "Use a non-default admin URL path. Attackers routinely scan for /admin/ to find Django admin panels."
+    },
+    {
+      "id": "RULE-PY009",
+      "message": "Missing CSRF protection in Django view",
+      "severity": "high",
+      "category": "python",
+      "languages": [
+        "python"
+      ],
+      "pattern": "@csrf_exempt",
+      "fix": "Avoid using @csrf_exempt. If you must disable CSRF for an API, use token-based authentication (e.g., DRF with TokenAuthentication)."
+    },
+    {
+      "id": "RULE-PY010",
+      "message": "Insecure pickle: loading untrusted data with pickle",
+      "severity": "critical",
+      "category": "python",
+      "languages": [
+        "python"
+      ],
+      "pattern": "pickle\\.(?:load|loads)\\s*\\(",
+      "exclude-pattern": "trusted|internal|test|spec",
+      "fix": "Never unpickle data from untrusted sources. Pickle can execute arbitrary code on deserialization. Use JSON or another safe format."
+    },
+    {
+      "id": "RULE-PY011",
+      "message": "Django DEBUG=True should not be used in production",
+      "severity": "high",
+      "category": "python",
+      "languages": [
+        "python"
+      ],
+      "pattern": "DEBUG\\s*=\\s*True",
+      "exclude-pattern": "test|development|local",
+      "fix": "Set DEBUG=False in production. Django's debug mode exposes detailed error pages with source code, SQL queries, and settings."
+    },
+    {
+      "id": "RULE-PY012",
+      "message": "Django SECRET_KEY hardcoded in settings",
+      "severity": "critical",
+      "category": "python",
+      "languages": [
+        "python"
+      ],
+      "pattern": "SECRET_KEY\\s*=\\s*['\"][^'\"]{10,}['\"]",
+      "exclude-pattern": "os\\.environ|env\\(|config\\(|getenv",
+      "fix": "Load SECRET_KEY from an environment variable. A leaked SECRET_KEY allows session forgery and other attacks."
+    },
+    {
+      "id": "RULE-PY013",
+      "message": "SQL injection via Python string formatting",
+      "severity": "critical",
+      "category": "python",
+      "languages": [
+        "python"
+      ],
+      "pattern": "(?:cursor\\.execute|connection\\.execute|db\\.execute|engine\\.execute)\\s*\\(\\s*(?:f['\"]|['\"].*%|.*\\.format\\()",
+      "fix": "Use parameterized queries with %s placeholders and pass values as a tuple. Never use f-strings or .format() for SQL."
+    },
+    {
+      "id": "RULE-PY014",
+      "message": "Flask app.run with debug=True in production code",
+      "severity": "high",
+      "category": "python",
+      "languages": [
+        "python"
+      ],
+      "pattern": "app\\.run\\s*\\([^)]*debug\\s*=\\s*True",
+      "fix": "Never use debug=True in production. Use a WSGI server (gunicorn, uwsgi) instead of the development server."
+    },
+    {
+      "id": "RULE-PY015",
+      "message": "Python eval() with external input",
+      "severity": "critical",
+      "category": "python",
+      "languages": [
+        "python"
+      ],
+      "pattern": "eval\\s*\\(\\s*(?:request\\.|input\\(|argv|args|params|data)",
+      "fix": "Never use eval() with user input. Use ast.literal_eval() for safe evaluation of data structures, or JSON.loads() for JSON."
+    },
+    {
+      "id": "RULE-PY016",
+      "message": "Python exec() can execute arbitrary code",
+      "severity": "critical",
+      "category": "python",
+      "languages": [
+        "python"
+      ],
+      "pattern": "exec\\s*\\(\\s*(?:request\\.|input\\(|argv|args|params|data|compile)",
+      "fix": "Never use exec() with untrusted input. Use safe alternatives like JSON parsing, configuration files, or sandboxed execution."
+    },
+    {
+      "id": "RULE-PY017",
+      "message": "Django ALLOWED_HOSTS wildcard allows host header attacks",
+      "severity": "high",
+      "category": "python",
+      "languages": [
+        "python"
+      ],
+      "pattern": "ALLOWED_HOSTS\\s*=\\s*\\[\\s*['\"]\\*['\"]",
+      "fix": "Set ALLOWED_HOSTS to specific domain names. Using '*' allows host header injection attacks."
+    },
+    {
+      "id": "RULE-PY018",
+      "message": "Insecure SSL context: verification disabled",
+      "severity": "critical",
+      "category": "python",
+      "languages": [
+        "python"
+      ],
+      "pattern": "(?:ssl\\._create_unverified_context|verify\\s*=\\s*False|CERT_NONE)",
+      "fix": "Never disable SSL certificate verification in production. Fix the certificate chain issue instead."
+    },
+    {
+      "id": "RULE-PY019",
+      "message": "Flask session secret key is weak or hardcoded",
+      "severity": "high",
+      "category": "python",
+      "languages": [
+        "python"
+      ],
+      "pattern": "app\\.secret_key\\s*=\\s*['\"][^'\"]+['\"]",
+      "exclude-pattern": "os\\.environ|os\\.urandom|secrets\\.|env\\(|getenv",
+      "fix": "Generate a strong random secret key using os.urandom(32) or secrets.token_hex(32). Load it from an environment variable."
+    },
+    {
+      "id": "RULE-PY020",
+      "message": "Dangerous default mutable argument in function",
+      "severity": "low",
+      "category": "python",
+      "languages": [
+        "python"
+      ],
+      "pattern": "def\\s+\\w+\\s*\\([^)]*(?:=\\s*\\[\\s*\\]|=\\s*\\{\\s*\\})",
+      "fix": "Use None as the default and create a new list/dict inside the function. Mutable default arguments are shared between calls."
+    },
+    {
+      "id": "RULE-PY021",
+      "message": "Django raw SQL query with string formatting",
+      "severity": "critical",
+      "category": "python",
+      "languages": [
+        "python"
+      ],
+      "pattern": "\\.(?:raw|extra)\\s*\\(\\s*(?:f['\"]|['\"].*%s.*['\"]\\s*%|.*\\.format\\()",
+      "fix": "Use Django ORM methods or parameterized raw queries: Model.objects.raw('SELECT * FROM t WHERE id = %s', [user_id])."
+    },
+    {
+      "id": "RULE-PY022",
+      "message": "Insecure XML parsing (XXE vulnerability)",
+      "severity": "high",
+      "category": "python",
+      "languages": [
+        "python"
+      ],
+      "pattern": "(?:xml\\.etree\\.ElementTree|xml\\.dom\\.minidom|xml\\.sax)\\.parse",
+      "exclude-pattern": "defusedxml",
+      "fix": "Use defusedxml library instead of the standard xml module. The standard library XML parsers are vulnerable to XXE attacks."
+    },
+    {
+      "id": "RULE-PY024",
+      "message": "Hardcoded database password in source code",
+      "severity": "critical",
+      "category": "python",
+      "languages": [
+        "python"
+      ],
+      "pattern": "(?:PASSWORD|DB_PASSWORD|DATABASE_PASSWORD)\\s*=\\s*['\"][^'\"]+['\"]",
+      "exclude-pattern": "os\\.environ|env\\(|getenv|config\\(|example|placeholder",
+      "fix": "Load database passwords from environment variables or a secrets manager."
+    },
+    {
+      "id": "RULE-PY025",
+      "message": "Python logging with sensitive data",
+      "severity": "medium",
+      "category": "python",
+      "languages": [
+        "python"
+      ],
+      "pattern": "(?:logging|logger)\\.(?:info|debug|warning|error)\\s*\\(.*(?:password|token|secret|credential|api_key)",
+      "fix": "Mask sensitive data before logging. Use structured logging with sensitive field filtering."
+    },
+    {
+      "id": "RULE-PY026",
+      "message": "Django SECURE_SSL_REDIRECT not enabled",
+      "severity": "medium",
+      "category": "python",
+      "languages": [
+        "python"
+      ],
+      "pattern": "SECURE_SSL_REDIRECT\\s*=\\s*False",
+      "fix": "Set SECURE_SSL_REDIRECT = True in production to redirect all HTTP requests to HTTPS."
+    },
+    {
+      "id": "RULE-PY028",
+      "message": "Open redirect in Django/Flask redirect",
+      "severity": "medium",
+      "category": "python",
+      "languages": [
+        "python"
+      ],
+      "pattern": "(?:redirect|HttpResponseRedirect)\\s*\\(\\s*(?:request\\.|args\\.|params|next_url|return_url|redirect_url)",
+      "exclude-pattern": "url_has_allowed_host_and_scheme|is_safe_url|validate_url|urlparse",
+      "fix": "Validate redirect URLs using Django's url_has_allowed_host_and_scheme() or manual hostname checks."
+    },
+    {
+      "id": "RULE-PY029",
+      "message": "Mass assignment in Django model form (fields = '__all__')",
+      "severity": "high",
+      "category": "python",
+      "languages": [
+        "python"
+      ],
+      "pattern": "fields\\s*=\\s*['\"]__all__['\"]",
+      "fix": "Explicitly list the allowed fields instead of using '__all__'. This prevents users from modifying sensitive fields like 'is_admin'."
+    },
+    {
+      "id": "RULE-PY030",
+      "message": "Python hashlib without proper salt for password hashing",
+      "severity": "high",
+      "category": "python",
+      "languages": [
+        "python"
+      ],
+      "pattern": "hashlib\\.(?:md5|sha1|sha256|sha512)\\s*\\([^)]*(?:password|passwd|pwd)",
+      "fix": "Use bcrypt, argon2, or Django's make_password() for password hashing. Raw hash functions are too fast for passwords."
+    },
+    {
+      "id": "RULE-PY031",
+      "message": "Django CSRF_COOKIE_SECURE not enabled",
+      "severity": "medium",
+      "category": "python",
+      "languages": [
+        "python"
+      ],
+      "pattern": "CSRF_COOKIE_SECURE\\s*=\\s*False",
+      "fix": "Set CSRF_COOKIE_SECURE = True in production to send CSRF cookies only over HTTPS."
+    },
+    {
+      "id": "RULE-PY032",
+      "message": "Django SESSION_COOKIE_SECURE not enabled",
+      "severity": "medium",
+      "category": "python",
+      "languages": [
+        "python"
+      ],
+      "pattern": "SESSION_COOKIE_SECURE\\s*=\\s*False",
+      "fix": "Set SESSION_COOKIE_SECURE = True in production to send session cookies only over HTTPS."
+    },
+    {
+      "id": "RULE-PY033",
+      "message": "Hardcoded API credentials in Python source",
+      "severity": "critical",
+      "category": "python",
+      "languages": [
+        "python"
+      ],
+      "pattern": "(?:API_KEY|API_SECRET|AWS_SECRET|STRIPE_SECRET|SENDGRID_API_KEY)\\s*=\\s*['\"][A-Za-z0-9_\\-]{10,}['\"]",
+      "exclude-pattern": "os\\.environ|env\\(|getenv|config\\(|example|placeholder|xxx|CHANGE_ME",
+      "fix": "Load API credentials from environment variables or a secrets manager."
+    },
+    {
+      "id": "RULE-PY034",
+      "message": "Python requests library without timeout",
+      "severity": "medium",
+      "category": "python",
+      "languages": [
+        "python"
+      ],
+      "pattern": "requests\\.(?:get|post|put|patch|delete|head|options)\\s*\\(",
+      "exclude-pattern": "timeout\\s*=",
+      "fix": "Always set a timeout on requests to prevent hanging indefinitely: requests.get(url, timeout=30)."
+    },
+    {
+      "id": "RULE-PY035",
+      "message": "CORS allow all origins in Flask",
+      "severity": "high",
+      "category": "python",
+      "languages": [
+        "python"
+      ],
+      "pattern": "CORS\\s*\\(\\s*app\\s*(?:,\\s*resources\\s*=\\s*\\{[^}]*['\"]\\*['\"]|\\))",
+      "fix": "Configure CORS with specific allowed origins instead of allowing all origins."
+    },
+    {
+      "id": "RULE-PY036",
+      "message": "SQLAlchemy text() with string formatting",
+      "severity": "critical",
+      "category": "python",
+      "languages": [
+        "python"
+      ],
+      "pattern": "text\\s*\\(\\s*(?:f['\"]|['\"].*\\.format\\()",
+      "fix": "Use SQLAlchemy's text() with :param syntax and pass values as bound parameters."
+    },
+    {
+      "id": "RULE-PY037",
+      "message": "Celery task accepting arbitrary executable code",
+      "severity": "high",
+      "category": "python",
+      "languages": [
+        "python"
+      ],
+      "pattern": "@(?:app|celery)\\.task.*\\n.*(?:eval|exec|__import__|compile|subprocess)",
+      "fix": "Never execute arbitrary code inside Celery tasks. Use specific task functions with validated inputs."
+    },
+    {
+      "id": "RULE-PY038",
+      "message": "Django file upload without content type validation",
+      "severity": "medium",
+      "category": "python",
+      "languages": [
+        "python"
+      ],
+      "pattern": "(?:FileField|ImageField)\\s*\\(",
+      "exclude-pattern": "validators|content_types|allowed_extensions|validate_file|FileExtensionValidator",
+      "fix": "Add file extension and content-type validators to Django file upload fields."
+    },
+    {
+      "id": "RULE-PY039",
+      "message": "Python __import__ with user input",
+      "severity": "critical",
+      "category": "python",
+      "languages": [
+        "python"
+      ],
+      "pattern": "__import__\\s*\\(\\s*(?:request|input|args|params|data)",
+      "fix": "Never use __import__ with user input. This allows arbitrary module loading and code execution."
+    },
+    {
+      "id": "RULE-PY040",
+      "message": "Django template with autoescape off",
+      "severity": "high",
+      "category": "python",
+      "languages": [
+        "python",
+        "html"
+      ],
+      "pattern": "\\{%\\s*autoescape\\s+off\\s*%\\}",
+      "fix": "Avoid disabling autoescape in Django templates. Use the |safe filter on specific trusted values instead."
+    },
+    {
+      "id": "RULE-GO001",
+      "message": "Unvalidated redirect in Go HTTP handler",
+      "severity": "medium",
+      "category": "go",
+      "languages": [
+        "go"
+      ],
+      "pattern": "http\\.Redirect\\s*\\(\\s*\\w+\\s*,\\s*\\w+\\s*,\\s*(?:r\\.(?:URL|Form|PostForm)|req\\.|params|query)",
+      "fix": "Validate redirect URLs against an allowlist. Only allow relative paths or specific trusted domains."
+    },
+    {
+      "id": "RULE-GO002",
+      "message": "Missing error check on database operation",
+      "severity": "high",
+      "category": "go",
+      "languages": [
+        "go"
+      ],
+      "pattern": "(?:db|tx)\\.(?:Exec|Query|QueryRow|Prepare)\\s*\\(",
+      "exclude-pattern": "err\\s*(?::=|=)|if\\s+err|,\\s*err",
+      "fix": "Always check errors returned from database operations. Unchecked errors can mask data corruption or injection."
+    },
+    {
+      "id": "RULE-GO003",
+      "message": "Go cookie without Secure flag",
+      "severity": "medium",
+      "category": "go",
+      "languages": [
+        "go"
+      ],
+      "pattern": "http\\.Cookie\\s*\\{",
+      "exclude-pattern": "Secure\\s*:\\s*true",
+      "fix": "Set Secure: true on cookies to ensure they are only sent over HTTPS."
+    },
+    {
+      "id": "RULE-GO004",
+      "message": "Go cookie without HttpOnly flag",
+      "severity": "medium",
+      "category": "go",
+      "languages": [
+        "go"
+      ],
+      "pattern": "http\\.Cookie\\s*\\{",
+      "exclude-pattern": "HttpOnly\\s*:\\s*true",
+      "fix": "Set HttpOnly: true on cookies to prevent JavaScript access and mitigate XSS-based cookie theft."
+    },
+    {
+      "id": "RULE-GO005",
+      "message": "Using text/template instead of html/template for HTML output",
+      "severity": "high",
+      "category": "go",
+      "languages": [
+        "go"
+      ],
+      "pattern": "\"text/template\"",
+      "exclude-pattern": "\"html/template\"",
+      "fix": "Use html/template instead of text/template when generating HTML. html/template automatically escapes values to prevent XSS."
+    },
+    {
+      "id": "RULE-GO006",
+      "message": "Goroutine sharing variable without synchronization",
+      "severity": "medium",
+      "category": "go",
+      "languages": [
+        "go"
+      ],
+      "pattern": "go\\s+func\\s*\\(\\s*\\)\\s*\\{",
+      "exclude-pattern": "sync\\.Mutex|sync\\.RWMutex|sync\\.WaitGroup|chan\\s|atomic\\.|sync\\.Once|mu\\.Lock|mu\\.RLock",
+      "fix": "Use channels, mutexes, or atomic operations for goroutine synchronization. Shared mutable state without synchronization causes race conditions."
+    },
+    {
+      "id": "RULE-GO007",
+      "message": "Missing context timeout on database/HTTP operations",
+      "severity": "medium",
+      "category": "go",
+      "languages": [
+        "go"
+      ],
+      "pattern": "context\\.Background\\s*\\(\\s*\\)",
+      "exclude-pattern": "context\\.WithTimeout|context\\.WithDeadline|context\\.WithCancel",
+      "fix": "Use context.WithTimeout() or context.WithDeadline() instead of context.Background() for operations that should time out."
+    },
+    {
+      "id": "RULE-GO008",
+      "message": "Exposed pprof endpoint in production",
+      "severity": "high",
+      "category": "go",
+      "languages": [
+        "go"
+      ],
+      "pattern": "\"net/http/pprof\"",
+      "exclude-pattern": "debug|development|test",
+      "fix": "Remove or gate pprof imports behind a build tag or environment check. Exposed pprof endpoints leak goroutine stacks and memory profiles."
+    },
+    {
+      "id": "RULE-GO009",
+      "message": "SQL injection via string concatenation in Go",
+      "severity": "critical",
+      "category": "go",
+      "languages": [
+        "go"
+      ],
+      "pattern": "(?:db|tx)\\.(?:Exec|Query|QueryRow)\\s*\\([^)]*(?:fmt\\.Sprintf|\\+\\s*\\w+|\"\\s*\\+)",
+      "fix": "Use parameterized queries with $1/$2 or ? placeholders. Never concatenate user input into SQL strings."
+    },
+    {
+      "id": "RULE-GO010",
+      "message": "Command injection in Go via os/exec with user input",
+      "severity": "critical",
+      "category": "go",
+      "languages": [
+        "go"
+      ],
+      "pattern": "exec\\.Command\\s*\\([^)]*(?:r\\.(?:URL|Form|PostForm)|req\\.|params|query|fmt\\.Sprintf)",
+      "fix": "Validate and sanitize user input before passing to exec.Command. Use the command and args separately (not as a shell string)."
+    },
+    {
+      "id": "RULE-GO011",
+      "message": "Go TLS InsecureSkipVerify disables certificate validation",
+      "severity": "critical",
+      "category": "go",
+      "languages": [
+        "go"
+      ],
+      "pattern": "InsecureSkipVerify\\s*:\\s*true",
+      "fix": "Never set InsecureSkipVerify to true in production. Fix the certificate chain or trust store issue instead."
+    },
+    {
+      "id": "RULE-GO012",
+      "message": "Go weak TLS version (TLS 1.0 or 1.1)",
+      "severity": "high",
+      "category": "go",
+      "languages": [
+        "go"
+      ],
+      "pattern": "(?:MinVersion|MaxVersion)\\s*:\\s*tls\\.VersionTLS1[01]",
+      "fix": "Set MinVersion to tls.VersionTLS12 or tls.VersionTLS13. TLS 1.0 and 1.1 have known vulnerabilities."
+    },
+    {
+      "id": "RULE-GO013",
+      "message": "Go http.ListenAndServe without TLS",
+      "severity": "medium",
+      "category": "go",
+      "languages": [
+        "go"
+      ],
+      "pattern": "http\\.ListenAndServe\\s*\\(",
+      "exclude-pattern": "ListenAndServeTLS|localhost|127\\.0\\.0\\.1|:0",
+      "fix": "Use http.ListenAndServeTLS() for production servers, or put the server behind a TLS-terminating reverse proxy."
+    },
+    {
+      "id": "RULE-GO014",
+      "message": "Go HTTP handler without timeout configuration",
+      "severity": "medium",
+      "category": "go",
+      "languages": [
+        "go"
+      ],
+      "pattern": "&http\\.Server\\s*\\{",
+      "exclude-pattern": "ReadTimeout|WriteTimeout|IdleTimeout|ReadHeaderTimeout",
+      "fix": "Set ReadTimeout, WriteTimeout, and IdleTimeout on http.Server to prevent slowloris and resource exhaustion attacks."
+    },
+    {
+      "id": "RULE-GO015",
+      "message": "Unsafe use of reflect in Go",
+      "severity": "low",
+      "category": "go",
+      "languages": [
+        "go"
+      ],
+      "pattern": "reflect\\.(?:ValueOf|TypeOf)\\s*\\(.*(?:interface|any)",
+      "fix": "Use type assertions and type switches instead of reflect when possible. Reflection bypasses type safety."
+    },
+    {
+      "id": "RULE-GO016",
+      "message": "Go SSRF: http.Get with user-controlled URL",
+      "severity": "critical",
+      "category": "go",
+      "languages": [
+        "go"
+      ],
+      "pattern": "http\\.(?:Get|Post|PostForm|Head)\\s*\\(\\s*(?:r\\.(?:URL|Form)|req\\.|params|query|fmt\\.Sprintf)",
+      "fix": "Validate user-provided URLs against an allowlist. Block private IP ranges and cloud metadata endpoints."
+    },
+    {
+      "id": "RULE-GO017",
+      "message": "Go filepath.Join with user input (path traversal)",
+      "severity": "high",
+      "category": "go",
+      "languages": [
+        "go"
+      ],
+      "pattern": "filepath\\.Join\\s*\\([^)]*(?:r\\.(?:URL|Form|PostForm)|req\\.|params|query)",
+      "fix": "Validate that the joined path stays within the expected directory. Check with filepath.Rel() or strings.HasPrefix()."
+    },
+    {
+      "id": "RULE-GO018",
+      "message": "Go unsafe package usage",
+      "severity": "medium",
+      "category": "go",
+      "languages": [
+        "go"
+      ],
+      "pattern": "\"unsafe\"",
+      "fix": "Avoid the unsafe package unless absolutely necessary. It bypasses Go's memory safety guarantees."
+    },
+    {
+      "id": "RULE-GO019",
+      "message": "Go CORS wildcard origin",
+      "severity": "high",
+      "category": "go",
+      "languages": [
+        "go"
+      ],
+      "pattern": "(?:AllowedOrigins|Access-Control-Allow-Origin).*\\*",
+      "exclude-pattern": "development|test|localhost",
+      "fix": "Configure CORS with specific allowed origins instead of wildcard. Wildcard allows any website to make requests to your API."
+    },
+    {
+      "id": "RULE-GO020",
+      "message": "Go bcrypt with low cost factor",
+      "severity": "medium",
+      "category": "go",
+      "languages": [
+        "go"
+      ],
+      "pattern": "bcrypt\\.GenerateFromPassword\\s*\\([^)]*,\\s*(?:[1-9])\\s*\\)",
+      "fix": "Use bcrypt.DefaultCost (10) or higher. Low cost factors make brute-force attacks feasible."
+    },
+    {
+      "id": "RULE-GO021",
+      "message": "Missing CSRF protection in Go web handler",
+      "severity": "medium",
+      "category": "go",
+      "languages": [
+        "go"
+      ],
+      "pattern": "r\\.Method\\s*==\\s*\"POST\"",
+      "exclude-pattern": "csrf|CSRF|gorilla/csrf|nosurf|token",
+      "fix": "Add CSRF protection using gorilla/csrf, nosurf, or similar middleware for POST/PUT/DELETE handlers."
+    },
+    {
+      "id": "RULE-GO022",
+      "message": "Go JWT without expiration claim",
+      "severity": "high",
+      "category": "go",
+      "languages": [
+        "go"
+      ],
+      "pattern": "jwt\\.(?:NewWithClaims|New)\\s*\\(",
+      "exclude-pattern": "ExpiresAt|exp|StandardClaims",
+      "fix": "Always set an expiration claim on JWTs. Tokens without expiration last forever if stolen."
+    },
+    {
+      "id": "RULE-GO023",
+      "message": "Go md5/sha1 used for security-sensitive hashing",
+      "severity": "high",
+      "category": "go",
+      "languages": [
+        "go"
+      ],
+      "pattern": "(?:md5|sha1)\\.(?:New|Sum)\\s*\\(",
+      "exclude-pattern": "checksum|hash\\.Hash|test",
+      "fix": "Use sha256 or sha512 for security-sensitive hashing. MD5 and SHA-1 have known collision attacks."
+    },
+    {
+      "id": "RULE-GO024",
+      "message": "Go os.MkdirAll with permissive permissions",
+      "severity": "medium",
+      "category": "go",
+      "languages": [
+        "go"
+      ],
+      "pattern": "os\\.MkdirAll\\s*\\([^)]*,\\s*0?7?77\\s*\\)",
+      "fix": "Use restrictive permissions (e.g., 0755 or 0700) for os.MkdirAll. 0777 allows any user to read/write/execute."
+    },
+    {
+      "id": "RULE-GO025",
+      "message": "Go defer inside loop (resource leak risk)",
+      "severity": "low",
+      "category": "go",
+      "languages": [
+        "go"
+      ],
+      "pattern": "for\\s+.*\\{[\\s\\S]*defer\\s",
+      "fix": "Move defer out of loops or wrap the loop body in a function. Deferred calls in loops accumulate until the function returns."
+    },
+    {
+      "id": "RULE-GO026",
+      "message": "Go HTTP response body not closed (resource leak)",
+      "severity": "medium",
+      "category": "go",
+      "languages": [
+        "go"
+      ],
+      "pattern": "http\\.(?:Get|Post|Do)\\s*\\(",
+      "exclude-pattern": "defer\\s+\\w+\\.Body\\.Close|resp\\.Body\\.Close",
+      "fix": "Always defer resp.Body.Close() after checking for errors on HTTP requests."
+    },
+    {
+      "id": "RULE-GO027",
+      "message": "Go crypto/rand not used for random bytes",
+      "severity": "medium",
+      "category": "go",
+      "languages": [
+        "go"
+      ],
+      "pattern": "math/rand",
+      "exclude-pattern": "crypto/rand",
+      "fix": "Use crypto/rand instead of math/rand for security-sensitive random values. math/rand is deterministic."
+    },
+    {
+      "id": "RULE-GO028",
+      "message": "Go fmt.Sprintf used in SQL query construction",
+      "severity": "critical",
+      "category": "go",
+      "languages": [
+        "go"
+      ],
+      "pattern": "fmt\\.Sprintf\\s*\\([^)]*(?:SELECT|INSERT|UPDATE|DELETE|DROP)\\s",
+      "fix": "Use parameterized queries instead of fmt.Sprintf for SQL. This prevents SQL injection."
+    },
+    {
+      "id": "RULE-GO029",
+      "message": "Go Gin/Echo/Fiber route without auth middleware",
+      "severity": "medium",
+      "category": "go",
+      "languages": [
+        "go"
+      ],
+      "pattern": "(?:r|router|app|e|g)\\.(?:POST|PUT|PATCH|DELETE)\\s*\\(\\s*\"/(?:api|admin|user|account|dashboard)",
+      "exclude-pattern": "Auth|JWT|Session|middleware|guard",
+      "fix": "Add authentication middleware to protected routes."
+    },
+    {
+      "id": "RULE-GO030",
+      "message": "Go log.Fatal in HTTP handler (crashes the server)",
+      "severity": "medium",
+      "category": "go",
+      "languages": [
+        "go"
+      ],
+      "pattern": "log\\.Fatal\\s*\\(",
+      "exclude-pattern": "func\\s+main",
+      "fix": "Use log.Printf or return an error instead of log.Fatal in HTTP handlers. Fatal calls os.Exit which crashes the entire server."
+    },
+    {
+      "id": "RULE-TF001",
+      "message": "Terraform resource missing tags",
+      "severity": "low",
+      "category": "terraform",
+      "languages": [
+        "terraform"
+      ],
+      "pattern": "resource\\s+\"aws_(?:instance|s3_bucket|rds_cluster|dynamodb_table|lambda_function|ecs_service|sqs_queue|sns_topic)\"",
+      "exclude-pattern": "tags\\s*=|tags_all",
+      "fix": "Add tags to all AWS resources for cost tracking, ownership, and compliance."
+    },
+    {
+      "id": "RULE-TF002",
+      "message": "Terraform S3 bucket without logging enabled",
+      "severity": "medium",
+      "category": "terraform",
+      "languages": [
+        "terraform"
+      ],
+      "pattern": "resource\\s+\"aws_s3_bucket\"",
+      "exclude-pattern": "logging|aws_s3_bucket_logging",
+      "fix": "Enable S3 access logging to track who accesses your bucket and when."
+    },
+    {
+      "id": "RULE-TF003",
+      "message": "Terraform RDS without backup retention",
+      "severity": "high",
+      "category": "terraform",
+      "languages": [
+        "terraform"
+      ],
+      "pattern": "resource\\s+\"aws_(?:rds_cluster|db_instance)\"",
+      "exclude-pattern": "backup_retention_period",
+      "fix": "Set backup_retention_period to at least 7 days for RDS databases."
+    },
+    {
+      "id": "RULE-TF004",
+      "message": "Terraform RDS instance publicly accessible",
+      "severity": "critical",
+      "category": "terraform",
+      "languages": [
+        "terraform"
+      ],
+      "pattern": "publicly_accessible\\s*=\\s*true",
+      "fix": "Set publicly_accessible = false on RDS instances. Databases should not be directly accessible from the internet."
+    },
+    {
+      "id": "RULE-TF005",
+      "message": "Terraform security group allows all inbound traffic (0.0.0.0/0)",
+      "severity": "critical",
+      "category": "terraform",
+      "languages": [
+        "terraform"
+      ],
+      "pattern": "cidr_blocks\\s*=\\s*\\[\\s*\"0\\.0\\.0\\.0/0\"\\s*\\]",
+      "exclude-pattern": "from_port\\s*=\\s*(?:80|443)\\s|description.*(?:HTTP|HTTPS|web|load.?balancer)",
+      "fix": "Restrict inbound traffic to specific IP ranges. Only allow 0.0.0.0/0 for ports 80/443 on load balancers."
+    },
+    {
+      "id": "RULE-TF006",
+      "message": "Terraform EBS volume not encrypted",
+      "severity": "high",
+      "category": "terraform",
+      "languages": [
+        "terraform"
+      ],
+      "pattern": "resource\\s+\"aws_ebs_volume\"",
+      "exclude-pattern": "encrypted\\s*=\\s*true",
+      "fix": "Set encrypted = true on EBS volumes to encrypt data at rest."
+    },
+    {
+      "id": "RULE-TF007",
+      "message": "Terraform RDS without encryption at rest",
+      "severity": "high",
+      "category": "terraform",
+      "languages": [
+        "terraform"
+      ],
+      "pattern": "resource\\s+\"aws_(?:db_instance|rds_cluster)\"",
+      "exclude-pattern": "storage_encrypted\\s*=\\s*true",
+      "fix": "Set storage_encrypted = true on RDS instances to encrypt data at rest."
+    },
+    {
+      "id": "RULE-TF008",
+      "message": "Terraform CloudTrail logging disabled",
+      "severity": "high",
+      "category": "terraform",
+      "languages": [
+        "terraform"
+      ],
+      "pattern": "enable_logging\\s*=\\s*false",
+      "fix": "Keep CloudTrail logging enabled. It provides an audit trail of all API calls in your AWS account."
+    },
+    {
+      "id": "RULE-TF009",
+      "message": "Terraform IAM policy with wildcard actions",
+      "severity": "critical",
+      "category": "terraform",
+      "languages": [
+        "terraform"
+      ],
+      "pattern": "\"Action\"\\s*:\\s*(?:\"\\*\"|\\[\\s*\"\\*\"\\s*\\])",
+      "fix": "Follow the principle of least privilege. Specify only the required IAM actions instead of using wildcard (*)."
+    },
+    {
+      "id": "RULE-TF010",
+      "message": "Terraform Lambda function without VPC configuration",
+      "severity": "low",
+      "category": "terraform",
+      "languages": [
+        "terraform"
+      ],
+      "pattern": "resource\\s+\"aws_lambda_function\"",
+      "exclude-pattern": "vpc_config",
+      "fix": "Consider placing Lambda functions in a VPC if they access private resources. Add vpc_config with appropriate subnets and security groups."
+    },
+    {
+      "id": "RULE-TF011",
+      "message": "Terraform S3 bucket without versioning",
+      "severity": "medium",
+      "category": "terraform",
+      "languages": [
+        "terraform"
+      ],
+      "pattern": "resource\\s+\"aws_s3_bucket\"",
+      "exclude-pattern": "versioning|aws_s3_bucket_versioning",
+      "fix": "Enable S3 bucket versioning to protect against accidental deletion and allow recovery of previous versions."
+    },
+    {
+      "id": "RULE-TF012",
+      "message": "Terraform S3 bucket without encryption",
+      "severity": "high",
+      "category": "terraform",
+      "languages": [
+        "terraform"
+      ],
+      "pattern": "resource\\s+\"aws_s3_bucket\"",
+      "exclude-pattern": "server_side_encryption|aws_s3_bucket_server_side_encryption",
+      "fix": "Enable server-side encryption on S3 buckets with aws_s3_bucket_server_side_encryption_configuration."
+    },
+    {
+      "id": "RULE-K8S001",
+      "message": "Kubernetes pod missing liveness probe",
+      "severity": "medium",
+      "category": "kubernetes",
+      "languages": [
+        "yaml"
+      ],
+      "pattern": "containers:",
+      "exclude-pattern": "livenessProbe",
+      "fix": "Add a livenessProbe to containers to detect and restart hung processes."
+    },
+    {
+      "id": "RULE-K8S002",
+      "message": "Kubernetes pod missing readiness probe",
+      "severity": "medium",
+      "category": "kubernetes",
+      "languages": [
+        "yaml"
+      ],
+      "pattern": "containers:",
+      "exclude-pattern": "readinessProbe",
+      "fix": "Add a readinessProbe to containers to prevent routing traffic to pods that aren't ready."
+    },
+    {
+      "id": "RULE-K8S003",
+      "message": "Kubernetes hostPath volume mount (security risk)",
+      "severity": "high",
+      "category": "kubernetes",
+      "languages": [
+        "yaml"
+      ],
+      "pattern": "hostPath:",
+      "fix": "Avoid hostPath volumes in production. They break pod isolation and can expose host filesystem to containers."
+    },
+    {
+      "id": "RULE-K8S004",
+      "message": "Kubernetes pod using default service account",
+      "severity": "medium",
+      "category": "kubernetes",
+      "languages": [
+        "yaml"
+      ],
+      "pattern": "serviceAccountName:\\s*default",
+      "fix": "Create a dedicated service account with minimal RBAC permissions instead of using the default service account."
+    },
+    {
+      "id": "RULE-K8S005",
+      "message": "Kubernetes container running as root",
+      "severity": "high",
+      "category": "kubernetes",
+      "languages": [
+        "yaml"
+      ],
+      "pattern": "runAsUser:\\s*0",
+      "fix": "Run containers as a non-root user. Set runAsUser to a non-zero UID and runAsNonRoot: true."
+    },
+    {
+      "id": "RULE-K8S006",
+      "message": "Kubernetes privileged container",
+      "severity": "critical",
+      "category": "kubernetes",
+      "languages": [
+        "yaml"
+      ],
+      "pattern": "privileged:\\s*true",
+      "fix": "Never run containers in privileged mode in production. Privileged containers have full host access."
+    },
+    {
+      "id": "RULE-K8S007",
+      "message": "Kubernetes container without resource limits",
+      "severity": "medium",
+      "category": "kubernetes",
+      "languages": [
+        "yaml"
+      ],
+      "pattern": "containers:",
+      "exclude-pattern": "resources:|limits:",
+      "fix": "Set resource limits (CPU and memory) on containers to prevent resource exhaustion."
+    },
+    {
+      "id": "RULE-K8S008",
+      "message": "Kubernetes pod with host network access",
+      "severity": "high",
+      "category": "kubernetes",
+      "languages": [
+        "yaml"
+      ],
+      "pattern": "hostNetwork:\\s*true",
+      "fix": "Avoid hostNetwork: true. Pods with host network access can sniff traffic and access network services on the host."
+    },
+    {
+      "id": "RULE-K8S009",
+      "message": "Kubernetes secret in environment variable (prefer volume mount)",
+      "severity": "low",
+      "category": "kubernetes",
+      "languages": [
+        "yaml"
+      ],
+      "pattern": "secretKeyRef:",
+      "fix": "Mount secrets as volumes instead of environment variables. Environment variables may be logged or exposed via /proc."
+    },
+    {
+      "id": "RULE-K8S010",
+      "message": "Kubernetes container allows privilege escalation",
+      "severity": "high",
+      "category": "kubernetes",
+      "languages": [
+        "yaml"
+      ],
+      "pattern": "allowPrivilegeEscalation:\\s*true",
+      "fix": "Set allowPrivilegeEscalation: false to prevent processes from gaining more privileges than their parent."
+    },
+    {
+      "id": "RULE-K8S011",
+      "message": "Kubernetes pod with host PID namespace access",
+      "severity": "high",
+      "category": "kubernetes",
+      "languages": [
+        "yaml"
+      ],
+      "pattern": "hostPID:\\s*true",
+      "fix": "Avoid hostPID: true. Containers with host PID access can view and signal all processes on the host."
+    },
+    {
+      "id": "RULE-K8S012",
+      "message": "Kubernetes container image using 'latest' tag",
+      "severity": "medium",
+      "category": "kubernetes",
+      "languages": [
+        "yaml"
+      ],
+      "pattern": "image:\\s*[^\\s]+:latest",
+      "fix": "Use specific image tags or SHA digests instead of 'latest'. Latest tags are mutable and can change unexpectedly."
+    },
+    {
+      "id": "RULE-K8S013",
+      "message": "Kubernetes NetworkPolicy not defined",
+      "severity": "medium",
+      "category": "kubernetes",
+      "languages": [
+        "yaml"
+      ],
+      "pattern": "kind:\\s*Deployment",
+      "exclude-pattern": "NetworkPolicy",
+      "fix": "Define NetworkPolicies to restrict pod-to-pod communication. Without policies, all pods can communicate freely."
+    },
+    {
+      "id": "RULE-K8S014",
+      "message": "Kubernetes ClusterRoleBinding to cluster-admin",
+      "severity": "critical",
+      "category": "kubernetes",
+      "languages": [
+        "yaml"
+      ],
+      "pattern": "name:\\s*cluster-admin",
+      "fix": "Avoid binding to the cluster-admin ClusterRole. Create roles with minimum required permissions."
+    },
+    {
+      "id": "RULE-DOCKER001",
+      "message": "Docker multi-stage build may leak secrets from build stage",
+      "severity": "high",
+      "category": "docker",
+      "languages": [
+        "docker"
+      ],
+      "pattern": "(?:ARG|ENV)\\s+(?:.*(?:PASSWORD|SECRET|TOKEN|API_KEY|PRIVATE_KEY))",
+      "exclude-pattern": "# nosec|--mount=type=secret",
+      "fix": "Use Docker build secrets (--mount=type=secret) instead of ARG/ENV for sensitive values. ARG values are stored in image layers."
+    },
+    {
+      "id": "RULE-DOCKER002",
+      "message": "pip install without --no-cache-dir wastes image space",
+      "severity": "low",
+      "category": "docker",
+      "languages": [
+        "docker"
+      ],
+      "pattern": "pip\\s+install",
+      "exclude-pattern": "--no-cache-dir",
+      "fix": "Add --no-cache-dir to pip install commands in Dockerfiles to reduce image size."
+    },
+    {
+      "id": "RULE-DOCKER003",
+      "message": "Docker COPY or ADD of entire context (may include secrets)",
+      "severity": "medium",
+      "category": "docker",
+      "languages": [
+        "docker"
+      ],
+      "pattern": "(?:COPY|ADD)\\s+\\.",
+      "exclude-pattern": "\\.dockerignore",
+      "fix": "Use a .dockerignore file to exclude .env, .git, node_modules, and other sensitive files. Or COPY specific files instead of the entire context."
+    },
+    {
+      "id": "RULE-DOCKER004",
+      "message": "Docker container running as root (no USER instruction)",
+      "severity": "medium",
+      "category": "docker",
+      "languages": [
+        "docker"
+      ],
+      "pattern": "^FROM\\s+",
+      "exclude-pattern": "USER\\s+(?!root)",
+      "fix": "Add a USER instruction to run the container as a non-root user. Running as root increases the blast radius of container escapes."
+    },
+    {
+      "id": "RULE-DOCKER005",
+      "message": "Docker EXPOSE on privileged port without justification",
+      "severity": "low",
+      "category": "docker",
+      "languages": [
+        "docker"
+      ],
+      "pattern": "EXPOSE\\s+(?:[0-9]{1,3}(?:\\s|$)|1023(?:\\s|$))",
+      "exclude-pattern": "80\\s|443\\s|8080\\s|8443\\s",
+      "fix": "Use non-privileged ports (>1024) in containers. Privileged ports require root or special capabilities."
+    },
+    {
+      "id": "RULE-DOCKER006",
+      "message": "Docker ADD used instead of COPY (ADD has extra features that may be unexpected)",
+      "severity": "low",
+      "category": "docker",
+      "languages": [
+        "docker"
+      ],
+      "pattern": "ADD\\s+(?!https?://)",
+      "fix": "Use COPY instead of ADD for local files. ADD auto-extracts archives and supports URLs, which can introduce unexpected behavior."
+    },
+    {
+      "id": "RULE-DOCKER007",
+      "message": "Docker apt-get without cleanup (increases image size)",
+      "severity": "low",
+      "category": "docker",
+      "languages": [
+        "docker"
+      ],
+      "pattern": "apt-get\\s+install",
+      "exclude-pattern": "rm\\s+-rf\\s+/var/lib/apt/lists|apt-get\\s+clean|--no-install-recommends",
+      "fix": "Chain apt-get update, install, and cleanup in a single RUN layer: RUN apt-get update && apt-get install -y --no-install-recommends pkg && rm -rf /var/lib/apt/lists/*"
+    },
+    {
+      "id": "RULE-DOCKER008",
+      "message": "Docker image using latest tag (non-reproducible builds)",
+      "severity": "medium",
+      "category": "docker",
+      "languages": [
+        "docker"
+      ],
+      "pattern": "FROM\\s+\\S+:latest",
+      "fix": "Pin Docker base images to specific version tags or SHA digests for reproducible builds."
+    },
+    {
+      "id": "RULE-GHA001",
+      "message": "GitHub Actions workflow_dispatch without input validation",
+      "severity": "medium",
+      "category": "cicd",
+      "languages": [
+        "yaml"
+      ],
+      "pattern": "workflow_dispatch:",
+      "exclude-pattern": "inputs:",
+      "fix": "Add input definitions with types and validation to workflow_dispatch triggers.",
+      "paths": {
+        "include": [
+          "**/.github/workflows/**"
+        ]
+      }
+    },
+    {
+      "id": "RULE-GHA002",
+      "message": "GitHub Actions GITHUB_TOKEN with excessive permissions",
+      "severity": "high",
+      "category": "cicd",
+      "languages": [
+        "yaml"
+      ],
+      "pattern": "permissions:\\s*write-all",
+      "fix": "Follow the principle of least privilege. Set specific permissions (e.g., contents: read, issues: write) instead of write-all.",
+      "paths": {
+        "include": [
+          "**/.github/workflows/**"
+        ]
+      }
+    },
+    {
+      "id": "RULE-GHA003",
+      "message": "GitHub Actions using outdated/unpinned third-party action",
+      "severity": "medium",
+      "category": "cicd",
+      "languages": [
+        "yaml"
+      ],
+      "pattern": "uses:\\s*[^/]+/[^@]+@(?:main|master|latest|v\\d+)\\s*$",
+      "exclude-pattern": "actions/checkout|actions/setup-node|actions/cache|actions/upload-artifact",
+      "fix": "Pin third-party GitHub Actions to a specific commit SHA instead of a branch or tag. This prevents supply chain attacks.",
+      "paths": {
+        "include": [
+          "**/.github/workflows/**"
+        ]
+      }
+    },
+    {
+      "id": "RULE-GHA004",
+      "message": "GitHub Actions secret exposed in run command",
+      "severity": "critical",
+      "category": "cicd",
+      "languages": [
+        "yaml"
+      ],
+      "pattern": "run:.*\\$\\{\\{\\s*secrets\\.",
+      "exclude-pattern": "mask|env:",
+      "fix": "Pass secrets via environment variables instead of directly in run commands. Direct use may expose them in logs.",
+      "paths": {
+        "include": [
+          "**/.github/workflows/**"
+        ]
+      }
+    },
+    {
+      "id": "RULE-GHA005",
+      "message": "GitHub Actions pull_request_target with checkout of PR code",
+      "severity": "critical",
+      "category": "cicd",
+      "languages": [
+        "yaml"
+      ],
+      "pattern": "pull_request_target",
+      "exclude-pattern": "permissions:\\s*read",
+      "fix": "pull_request_target runs with write access to the base repo. Checking out and running PR code can lead to code injection. Use pull_request event instead or add strict permission limits.",
+      "paths": {
+        "include": [
+          "**/.github/workflows/**"
+        ]
+      }
+    },
+    {
+      "id": "RULE-GHA006",
+      "message": "GitHub Actions artifact upload without retention limit",
+      "severity": "low",
+      "category": "cicd",
+      "languages": [
+        "yaml"
+      ],
+      "pattern": "actions/upload-artifact",
+      "exclude-pattern": "retention-days",
+      "fix": "Set retention-days on artifact uploads to avoid accumulating storage costs.",
+      "paths": {
+        "include": [
+          "**/.github/workflows/**"
+        ]
+      }
+    },
+    {
+      "id": "RULE-GHA007",
+      "message": "GitHub Actions shell injection via github context in run",
+      "severity": "critical",
+      "category": "cicd",
+      "languages": [
+        "yaml"
+      ],
+      "pattern": "run:.*\\$\\{\\{\\s*github\\.event\\.(?:issue|pull_request|comment)\\.(?:title|body|head\\.ref)",
+      "fix": "Never use github event data directly in run commands. Assign to an env variable first to prevent shell injection.",
+      "paths": {
+        "include": [
+          "**/.github/workflows/**"
+        ]
+      }
+    },
+    {
+      "id": "RULE-GHA008",
+      "message": "GitHub Actions workflow without concurrency control",
+      "severity": "low",
+      "category": "cicd",
+      "languages": [
+        "yaml"
+      ],
+      "pattern": "on:\\s*\\n\\s+(?:push|pull_request)",
+      "exclude-pattern": "concurrency:",
+      "fix": "Add a concurrency group to prevent duplicate workflow runs on the same branch.",
+      "paths": {
+        "include": [
+          "**/.github/workflows/**"
+        ]
+      }
+    },
+    {
+      "id": "RULE-GEN001",
+      "message": "TODO/FIXME comment mentions security concern",
+      "severity": "medium",
+      "category": "generic",
+      "languages": [
+        "javascript",
+        "typescript",
+        "python",
+        "go",
+        "ruby",
+        "php",
+        "java"
+      ],
+      "pattern": "(?:TODO|FIXME|HACK|XXX|BUG).*(?:security|auth|permission|credential|secret|password|token|vuln|inject|sanitize|escape|encrypt|decrypt|hash|csrf|xss|sqli|ssrf)",
+      "fix": "Address security-related TODO/FIXME comments before deploying to production."
+    },
+    {
+      "id": "RULE-GEN002",
+      "message": "Commented-out security code detected",
+      "severity": "high",
+      "category": "generic",
+      "languages": [
+        "javascript",
+        "typescript",
+        "python",
+        "go"
+      ],
+      "pattern": "(?://|#)\\s*(?:if|require|import|const|let|var|def)\\s*.*(?:auth|authenticate|authorize|verify|validate|sanitize|escape|encrypt|checkPermission|requireAuth|isAdmin|csrf)",
+      "fix": "Commented-out security code suggests protection was disabled. Either restore it or remove it with an explanation."
+    },
+    {
+      "id": "RULE-GEN005",
+      "message": "Hardcoded localhost URL in production code",
+      "severity": "low",
+      "category": "generic",
+      "languages": [
+        "javascript",
+        "typescript",
+        "python",
+        "go"
+      ],
+      "pattern": "['\"]https?://(?:localhost|127\\.0\\.0\\.1)(?::\\d+)?(?:/[^'\"]*)?['\"]",
+      "exclude-pattern": "test|spec|mock|fixture|example|development|dev|local",
+      "fix": "Use environment variables or configuration files for service URLs. Hardcoded localhost URLs won't work in production.",
+      "paths": {
+        "exclude": [
+          "**/*.test.*",
+          "**/*.spec.*",
+          "**/test/**",
+          "**/tests/**",
+          "**/__tests__/**",
+          "**/fixtures/**"
+        ]
+      }
+    },
+    {
+      "id": "RULE-GEN006",
+      "message": "Hardcoded development/staging URL in non-test file",
+      "severity": "medium",
+      "category": "generic",
+      "languages": [
+        "javascript",
+        "typescript",
+        "python",
+        "go"
+      ],
+      "pattern": "['\"]https?://(?:dev|staging|stg|uat|sandbox|preprod|pre-prod)[\\.\\-]",
+      "fix": "Use environment variables for service URLs. Hardcoded staging URLs should not be in production code.",
+      "paths": {
+        "exclude": [
+          "**/*.test.*",
+          "**/*.spec.*",
+          "**/test/**",
+          "**/tests/**"
+        ]
+      }
+    },
+    {
+      "id": "RULE-GEN007",
+      "message": "Potential password in variable assignment",
+      "severity": "high",
+      "category": "secrets",
+      "languages": [
+        "javascript",
+        "typescript",
+        "python",
+        "go",
+        "ruby",
+        "php",
+        "java"
+      ],
+      "pattern": "(?:password|passwd|pwd|pass)\\s*(?:=|:)\\s*['\"][^'\"]{4,}['\"]",
+      "exclude-pattern": "env|config|getenv|process\\.env|os\\.environ|placeholder|example|xxx|changeme|test|spec|mock|input|prompt|hash|bcrypt|argon|scrypt|validator|schema",
+      "fix": "Load passwords from environment variables, a secrets manager, or a secure configuration source.",
+      "paths": {
+        "exclude": [
+          "**/*.test.*",
+          "**/*.spec.*",
+          "**/test/**",
+          "**/tests/**"
+        ]
+      }
+    },
+    {
+      "id": "RULE-GEN008",
+      "message": "Potential API key in variable assignment",
+      "severity": "high",
+      "category": "secrets",
+      "languages": [
+        "javascript",
+        "typescript",
+        "python",
+        "go",
+        "ruby",
+        "php",
+        "java"
+      ],
+      "pattern": "(?:api_key|apiKey|API_KEY|ApiKey)\\s*(?:=|:)\\s*['\"][A-Za-z0-9_\\-]{16,}['\"]",
+      "exclude-pattern": "env|config|getenv|process\\.env|os\\.environ|placeholder|example|xxx|CHANGE|test|spec|mock",
+      "fix": "Load API keys from environment variables or a secrets manager.",
+      "paths": {
+        "exclude": [
+          "**/*.test.*",
+          "**/*.spec.*",
+          "**/test/**",
+          "**/tests/**"
+        ]
+      }
+    },
+    {
+      "id": "RULE-GEN009",
+      "message": "Connection string with embedded credentials",
+      "severity": "critical",
+      "category": "secrets",
+      "languages": [
+        "javascript",
+        "typescript",
+        "python",
+        "go",
+        "ruby",
+        "php",
+        "java"
+      ],
+      "pattern": "['\"](?:postgres|mysql|mongodb|redis|amqp|mssql)://\\w+:[^@'\"]+@",
+      "exclude-pattern": "env|config|getenv|process\\.env|os\\.environ|placeholder|example|xxx|localhost.*test|test.*localhost",
+      "fix": "Load database connection strings from environment variables. Embedded credentials in source code are easily leaked.",
+      "paths": {
+        "exclude": [
+          "**/*.test.*",
+          "**/*.spec.*",
+          "**/test/**",
+          "**/tests/**"
+        ]
+      }
+    },
+    {
+      "id": "RULE-GEN010",
+      "message": "Private key content embedded in source code",
+      "severity": "critical",
+      "category": "secrets",
+      "languages": [
+        "javascript",
+        "typescript",
+        "python",
+        "go",
+        "ruby",
+        "php",
+        "java"
+      ],
+      "pattern": "-----BEGIN\\s+(?:RSA\\s+)?PRIVATE\\s+KEY-----",
+      "fix": "Never embed private keys in source code. Load them from files, environment variables, or a key management service."
+    },
+    {
+      "id": "RULE-GEN011",
+      "message": "Disabled security feature via comment flag",
+      "severity": "high",
+      "category": "generic",
+      "languages": [
+        "javascript",
+        "typescript",
+        "python",
+        "go"
+      ],
+      "pattern": "(?:nosec|nolint|eslint-disable|type:\\s*ignore|noqa).*(?:security|auth|injection|xss|csrf)",
+      "fix": "Review disabled security linter rules. Suppressed security warnings should have a clear justification comment."
+    },
+    {
+      "id": "RULE-GEN012",
+      "message": "Hardcoded AWS region (should be configurable)",
+      "severity": "low",
+      "category": "config",
+      "languages": [
+        "javascript",
+        "typescript",
+        "python",
+        "go"
+      ],
+      "pattern": "(?:region|Region|REGION)\\s*(?:=|:)\\s*['\"](?:us-east-1|us-west-2|eu-west-1|ap-southeast-1)['\"]",
+      "exclude-pattern": "config|env|getenv|process\\.env|os\\.environ|default|fallback|test",
+      "fix": "Load AWS region from environment variables or configuration. Hardcoded regions make multi-region deployment harder."
+    },
+    {
+      "id": "RULE-GEN014",
+      "message": "Base64-encoded string that may be a credential",
+      "severity": "medium",
+      "category": "secrets",
+      "languages": [
+        "javascript",
+        "typescript",
+        "python",
+        "go"
+      ],
+      "pattern": "(?:auth|token|key|secret|password|credential).*(?:btoa|atob|base64|Buffer\\.from)\\s*\\(\\s*['\"][A-Za-z0-9+/=]{20,}['\"]",
+      "exclude-pattern": "test|spec|mock|example",
+      "fix": "Base64 is encoding, not encryption. Move credentials to environment variables or a secrets manager.",
+      "paths": {
+        "exclude": [
+          "**/*.test.*",
+          "**/*.spec.*",
+          "**/test/**"
+        ]
+      }
+    },
+    {
+      "id": "RULE-GEN015",
+      "message": "IP address allowlist bypassed or commented out",
+      "severity": "high",
+      "category": "generic",
+      "languages": [
+        "javascript",
+        "typescript",
+        "python",
+        "go"
+      ],
+      "pattern": "(?://|#)\\s*.*(?:allowlist|whitelist|ip_allow|allowed_ips|trusted_ips)",
+      "fix": "Commented-out IP allowlist code suggests security was disabled. Restore or properly replace the IP filtering."
+    },
+    {
+      "id": "RULE-GEN016",
+      "message": "Source map file referenced in production code",
+      "severity": "low",
+      "category": "data-exposure",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "sourceMappingURL\\s*=",
+      "fix": "Remove source map references from production builds. Source maps expose your original source code.",
+      "paths": {
+        "exclude": [
+          "**/*.test.*",
+          "**/*.spec.*",
+          "**/test/**"
+        ]
+      }
+    },
+    {
+      "id": "RULE-GEN017",
+      "message": "Disabled authentication check",
+      "severity": "critical",
+      "category": "auth",
+      "languages": [
+        "javascript",
+        "typescript",
+        "python",
+        "go"
+      ],
+      "pattern": "(?://|#)\\s*(?:if|require|check|verify|validate).*(?:auth|login|session|token|permission|role)",
+      "fix": "Commented-out authentication checks leave endpoints unprotected. Restore the auth check or implement proper access control."
+    },
+    {
+      "id": "RULE-GEN018",
+      "message": "Wildcard import may include more than intended",
+      "severity": "low",
+      "category": "generic",
+      "languages": [
+        "python"
+      ],
+      "pattern": "from\\s+\\S+\\s+import\\s+\\*",
+      "fix": "Use explicit imports instead of wildcard (*) imports. Wildcard imports make it hard to track where names come from and can cause name collisions."
+    },
+    {
+      "id": "RULE-GEN020",
+      "message": "Weak comparison operator (== instead of ===) may cause type coercion issues",
+      "severity": "low",
+      "category": "generic",
+      "languages": [
+        "javascript"
+      ],
+      "pattern": "(?:password|token|secret|hash|session|role|admin|permission)\\s*==\\s*(?!'undefined'|null|undefined)",
+      "exclude-pattern": "===|!==",
+      "fix": "Use strict equality (===) instead of loose equality (==) for security-sensitive comparisons to prevent type coercion bypasses."
+    },
+    {
+      "id": "RULE-GEN021",
+      "message": "Non-constant-time string comparison for secrets",
+      "severity": "medium",
+      "category": "crypto",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "(?:===|==)\\s*(?:token|secret|hash|signature|hmac|digest|apiKey|api_key)",
+      "exclude-pattern": "timingSafeEqual|constantTimeEqual|secure_compare|hmac\\.verify|crypto\\.subtle",
+      "fix": "Use crypto.timingSafeEqual() for comparing secrets. Regular comparison (===) is vulnerable to timing attacks."
+    },
+    {
+      "id": "RULE-GEN022",
+      "message": "Global error handler may swallow security errors",
+      "severity": "medium",
+      "category": "generic",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "process\\.on\\s*\\(\\s*['\"]uncaughtException['\"]",
+      "exclude-pattern": "process\\.exit|graceful|shutdown",
+      "fix": "Ensure uncaughtException handlers log the error and exit the process. Swallowing errors can hide security issues."
+    },
+    {
+      "id": "RULE-GEN023",
+      "message": "Directory listing may be enabled (express.static without index)",
+      "severity": "medium",
+      "category": "data-exposure",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "express\\.static\\s*\\(",
+      "exclude-pattern": "index\\s*:|serveIndex|dotfiles\\s*:",
+      "fix": "Disable directory listing in express.static by setting { index: false } and consider using { dotfiles: 'deny' }."
+    },
+    {
+      "id": "RULE-GEN024",
+      "message": "XML external entity (XXE) processing enabled",
+      "severity": "high",
+      "category": "injection",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "(?:xml2js|libxmljs|xmldom|fast-xml-parser|DOMParser).*\\(",
+      "exclude-pattern": "noent\\s*:\\s*false|dtd\\s*:\\s*false|externalEntities\\s*:\\s*false",
+      "fix": "Disable external entity processing in XML parsers to prevent XXE attacks."
+    },
+    {
+      "id": "RULE-GEN025",
+      "message": "Potential timing attack in authentication comparison",
+      "severity": "high",
+      "category": "auth",
+      "languages": [
+        "javascript",
+        "typescript",
+        "python",
+        "go"
+      ],
+      "pattern": "(?:password|token|secret|apiKey|api_key)\\s*(?:===?|!=|!==|equals)\\s*(?:req\\.|body\\.|query\\.|params\\.|input)",
+      "exclude-pattern": "timingSafeEqual|constantTime|secure_compare|hmac\\.compare|subtle\\.timingSafe",
+      "fix": "Use constant-time comparison for authentication secrets. Regular string comparison leaks information through timing."
+    },
+    {
+      "id": "RULE-GEN026",
+      "message": "Disabled eslint security rule",
+      "severity": "medium",
+      "category": "generic",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "eslint-disable.*(?:no-eval|no-implied-eval|no-new-func|security)",
+      "fix": "Review disabled eslint security rules. If suppressing is necessary, add a comment explaining why."
+    },
+    {
+      "id": "RULE-GEN027",
+      "message": "Debug logging enabled unconditionally",
+      "severity": "low",
+      "category": "data-exposure",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "(?:debug|verbose|trace)\\s*(?:=|:)\\s*true",
+      "exclude-pattern": "env|config|NODE_ENV|process\\.env|development|test",
+      "fix": "Gate debug logging behind environment checks. Debug logs may expose sensitive data in production.",
+      "paths": {
+        "exclude": [
+          "**/*.test.*",
+          "**/*.spec.*",
+          "**/test/**"
+        ]
+      }
+    },
+    {
+      "id": "RULE-GEN028",
+      "message": "Potential command injection via backtick in shell script",
+      "severity": "high",
+      "category": "injection",
+      "languages": [
+        "shell"
+      ],
+      "pattern": "`[^`]*\\$\\{?[A-Za-z_]",
+      "fix": "Use $() instead of backticks for command substitution, and always quote variables to prevent injection."
+    },
+    {
+      "id": "RULE-GEN029",
+      "message": "Unquoted variable in shell script (word splitting risk)",
+      "severity": "medium",
+      "category": "injection",
+      "languages": [
+        "shell"
+      ],
+      "pattern": "(?:rm|mv|cp|cat|echo|cd|mkdir|chmod|chown)\\s+[^\"']*\\$[A-Za-z_]",
+      "exclude-pattern": "\"\\$",
+      "fix": "Always double-quote shell variables to prevent word splitting and globbing attacks."
+    },
+    {
+      "id": "RULE-GEN030",
+      "message": "Shell script without set -e (errors not caught)",
+      "severity": "low",
+      "category": "config",
+      "languages": [
+        "shell"
+      ],
+      "pattern": "#!/bin/(?:bash|sh|zsh)",
+      "exclude-pattern": "set\\s+-e|set\\s+-o\\s+errexit",
+      "fix": "Add 'set -euo pipefail' to the top of shell scripts to catch errors, unset variables, and pipe failures."
+    },
+    {
+      "id": "RULE-GEN031",
+      "message": "curl without certificate verification (-k or --insecure)",
+      "severity": "medium",
+      "category": "network",
+      "languages": [
+        "shell",
+        "yaml"
+      ],
+      "pattern": "curl\\s+.*(?:-k|--insecure)",
+      "fix": "Remove -k/--insecure from curl commands. Fix the underlying SSL certificate issue instead."
+    },
+    {
+      "id": "RULE-GEN032",
+      "message": "wget without certificate verification (--no-check-certificate)",
+      "severity": "medium",
+      "category": "network",
+      "languages": [
+        "shell",
+        "yaml"
+      ],
+      "pattern": "wget\\s+.*--no-check-certificate",
+      "fix": "Remove --no-check-certificate from wget commands. Fix the certificate issue instead."
+    },
+    {
+      "id": "RULE-GEN033",
+      "message": "SSH with disabled host key checking",
+      "severity": "high",
+      "category": "network",
+      "languages": [
+        "shell",
+        "yaml"
+      ],
+      "pattern": "StrictHostKeyChecking\\s*(?:=|\\s)\\s*no",
+      "fix": "Don't disable SSH host key checking. Add the host key to known_hosts instead."
+    },
+    {
+      "id": "RULE-GEN034",
+      "message": "Exposed Swagger/OpenAPI documentation endpoint",
+      "severity": "low",
+      "category": "data-exposure",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "(?:swagger-ui|swaggerUi|SwaggerModule|swagger-jsdoc)",
+      "exclude-pattern": "development|dev|NODE_ENV|process\\.env|auth|protected",
+      "fix": "Protect Swagger/OpenAPI endpoints in production. Exposed API documentation helps attackers understand your API surface."
+    },
+    {
+      "id": "RULE-GEN036",
+      "message": "Potential open redirect via URL parameter",
+      "severity": "medium",
+      "category": "injection",
+      "languages": [
+        "javascript",
+        "typescript",
+        "python"
+      ],
+      "pattern": "(?:redirect|next|return_url|returnUrl|callback|goto|destination|forward|continue|redir)\\s*=\\s*(?:req\\.|request\\.|params\\.|query\\.|body\\.)",
+      "exclude-pattern": "validate|allowlist|whitelist|startsWith.*['\"]\\.|url_has_allowed|is_safe_url",
+      "fix": "Validate redirect URLs. Only allow relative paths starting with '/' (but not '//') or URLs matching an allowlist of trusted domains."
+    },
+    {
+      "id": "RULE-GEN037",
+      "message": "Potential log injection via user input in log message",
+      "severity": "medium",
+      "category": "injection",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "(?:console|logger|log|winston|pino|bunyan)\\.(?:log|info|warn|error|debug)\\s*\\(\\s*(?:`[^`]*\\$\\{.*(?:req\\.|body\\.|query\\.|params\\.)|.*\\+\\s*(?:req\\.|body\\.|query\\.|params\\.))",
+      "fix": "Sanitize user input before logging to prevent log injection. Remove newlines and control characters."
+    },
+    {
+      "id": "RULE-GEN038",
+      "message": "HTTP header injection via user input",
+      "severity": "high",
+      "category": "injection",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "(?:res\\.(?:set|setHeader|header)|headers\\[)\\s*(?:\\(|\\[)[^)\\]]*(?:req\\.|body\\.|query\\.|params\\.|user)",
+      "fix": "Validate and sanitize user input used in HTTP headers. Strip newlines (\\r\\n) to prevent header injection."
+    },
+    {
+      "id": "RULE-GEN039",
+      "message": "Sensitive file extension served by static handler",
+      "severity": "high",
+      "category": "data-exposure",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "express\\.static\\s*\\(",
+      "exclude-pattern": "dotfiles\\s*:\\s*['\"]deny['\"]|extensions\\s*:|setHeaders",
+      "fix": "Configure express.static with { dotfiles: 'deny' } to prevent serving .env, .git, and other dotfiles."
+    },
+    {
+      "id": "RULE-GEN040",
+      "message": "Insecure direct object reference (IDOR): resource accessed by user-provided ID without authorization",
+      "severity": "medium",
+      "category": "auth",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "(?:findById|findOne|findUnique|get)\\s*\\(\\s*(?:req\\.params\\.|req\\.query\\.|params\\.)",
+      "exclude-pattern": "auth|session|userId|user_id|currentUser|req\\.user|verifyOwner|checkPermission|authorize",
+      "fix": "Verify that the requesting user has permission to access the resource. Check ownership or role-based access before returning data."
+    },
+    {
+      "id": "RULE-GEN044",
+      "message": "HTML form action points to external URL",
+      "severity": "medium",
+      "category": "injection",
+      "languages": [
+        "html"
+      ],
+      "pattern": "<form[^>]*action\\s*=\\s*['\"]https?://",
+      "exclude-pattern": "same-origin|csrf|token",
+      "fix": "Verify that form actions pointing to external URLs are intentional. This could be a phishing vector."
+    },
+    {
+      "id": "RULE-GEN045",
+      "message": "iframe without sandbox attribute",
+      "severity": "medium",
+      "category": "injection",
+      "languages": [
+        "html",
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "<iframe[^>]*(?!.*sandbox)",
+      "fix": "Add the sandbox attribute to iframes to restrict their capabilities. Use allow-scripts, allow-forms, etc. selectively."
+    },
+    {
+      "id": "RULE-GEN048",
+      "message": "Markdown rendering without sanitization (XSS risk)",
+      "severity": "medium",
+      "category": "injection",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "(?:marked|markdown-it|showdown|remark)\\s*(?:\\.|\\().*(?:innerHTML|dangerouslySetInnerHTML|v-html)",
+      "exclude-pattern": "sanitize|DOMPurify|xss|escape",
+      "fix": "Sanitize rendered markdown with DOMPurify before inserting into the DOM. Markdown can contain arbitrary HTML and script tags."
+    },
+    {
+      "id": "RULE-GEN049",
+      "message": "Server-sent event stream without authentication",
+      "severity": "medium",
+      "category": "auth",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "(?:text/event-stream|EventSource|res\\.write\\s*\\(\\s*['\"]data:)",
+      "exclude-pattern": "auth|session|token|middleware|guard|requireAuth",
+      "fix": "Add authentication to SSE endpoints. Without authentication, anyone can subscribe to your event stream."
+    },
+    {
+      "id": "RULE-GEN051",
+      "message": "S3 bucket name hardcoded (should be configurable)",
+      "severity": "low",
+      "category": "config",
+      "languages": [
+        "javascript",
+        "typescript",
+        "python",
+        "go"
+      ],
+      "pattern": "['\"]s3://[a-z0-9][a-z0-9.-]+['\"]",
+      "exclude-pattern": "env|config|process\\.env|os\\.environ|getenv|test|example",
+      "fix": "Load S3 bucket names from environment variables or configuration files."
+    },
+    {
+      "id": "RULE-GEN055",
+      "message": "Recursive function without depth limit",
+      "severity": "low",
+      "category": "dos",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "function\\s+(\\w+)\\s*\\([^)]*\\)\\s*\\{[^}]*\\1\\s*\\(",
+      "exclude-pattern": "depth|maxDepth|max_depth|level|maxLevel|limit|MAX_",
+      "fix": "Add a depth/recursion limit to recursive functions to prevent stack overflow on malicious input."
+    },
+    {
+      "id": "RULE-GEN056",
+      "message": "Unsafe YAML parsing in JavaScript",
+      "severity": "high",
+      "category": "injection",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "yaml\\.(?:load|loadAll|safeLoad)\\s*\\(",
+      "exclude-pattern": "SAFE_SCHEMA|JSON_SCHEMA|safeLoad|safe_load|schema:\\s*",
+      "fix": "Use yaml.load with SAFE_SCHEMA or the safe API (js-yaml safe functions). Unsafe YAML parsing can execute arbitrary code."
+    },
+    {
+      "id": "RULE-GEN057",
+      "message": "Server version or technology exposed in response headers",
+      "severity": "low",
+      "category": "data-exposure",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "(?:X-Powered-By|Server|x-powered-by|server)\\s*(?::|,)\\s*['\"]",
+      "exclude-pattern": "removeHeader|disable|helmet",
+      "fix": "Remove or hide server version headers (X-Powered-By, Server). They help attackers identify your technology stack."
+    },
+    {
+      "id": "RULE-GEN058",
+      "message": "Insecure cookie configuration: cookie domain too broad",
+      "severity": "medium",
+      "category": "network",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "domain\\s*:\\s*['\"]\\.[a-z]+\\.[a-z]+['\"]",
+      "fix": "Avoid setting cookies on broad domains. Use the most specific domain possible to limit cookie scope."
+    },
+    {
+      "id": "RULE-GEN060",
+      "message": "Potential CRLF injection in HTTP header value",
+      "severity": "high",
+      "category": "injection",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "(?:res\\.setHeader|res\\.set|res\\.header)\\s*\\([^)]+(?:req\\.|body\\.|query\\.|params\\.)",
+      "exclude-pattern": "replace.*\\\\r|replace.*\\\\n|sanitize|encode",
+      "fix": "Sanitize user input in HTTP headers by removing \\r and \\n characters to prevent CRLF injection."
+    },
+    {
+      "id": "RULE-AST-002",
+      "message": "eval() executes arbitrary code. Never use with untrusted input.",
+      "severity": "critical",
+      "category": "injection",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "eval($CODE)",
+      "pattern-mode": "ast",
+      "fix": "Remove eval(). Use JSON.parse() for data, or a safe expression evaluator."
+    },
+    {
+      "id": "RULE-AST-004",
+      "message": "new Function() is equivalent to eval(). Avoid with untrusted input.",
+      "severity": "critical",
+      "category": "injection",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "new Function($CODE)",
+      "pattern-mode": "ast",
+      "fix": "Remove new Function(). Use safe alternatives like JSON.parse() or a sandboxed evaluator."
+    },
+    {
+      "id": "RULE-AST-005",
+      "message": "document.write() can cause XSS and destroys existing DOM content",
+      "severity": "high",
+      "category": "injection",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "document.write($CONTENT)",
+      "pattern-mode": "ast",
+      "fix": "Use DOM APIs (createElement, appendChild, textContent) instead of document.write()"
+    },
+    {
+      "id": "RULE-AST-006",
+      "message": "MD5 is cryptographically broken. Use SHA-256 or better.",
+      "severity": "high",
+      "category": "crypto",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "createHash('md5')",
+      "pattern-mode": "ast",
+      "fix": "Replace createHash('md5') with createHash('sha256') or createHash('sha512')"
+    },
+    {
+      "id": "RULE-AST-007",
+      "message": "SHA-1 is deprecated and vulnerable to collision attacks. Use SHA-256 or better.",
+      "severity": "high",
+      "category": "crypto",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "createHash('sha1')",
+      "pattern-mode": "ast",
+      "fix": "Replace createHash('sha1') with createHash('sha256') or createHash('sha512')"
+    },
+    {
+      "id": "RULE-AST-009",
+      "message": "Redirect target should be validated against an allowlist",
+      "severity": "medium",
+      "category": "auth",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "res.redirect($URL)",
+      "pattern-mode": "ast",
+      "exclude-pattern": "allowlist|whitelist|validUrl|safeUrl",
+      "fix": "Validate the redirect URL against a known allowlist to prevent open redirect attacks"
+    },
+    {
+      "id": "RULE-AST-010",
+      "message": "cors() with no arguments allows all origins \u2014 restrict to known domains",
+      "severity": "high",
+      "category": "network",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "cors()",
+      "pattern-mode": "ast",
+      "fix": "Pass an options object: cors({ origin: 'https://yourdomain.com' })"
+    },
+    {
+      "id": "RULE-AST-011",
+      "message": "CORS with wildcard origin allows any website to make requests",
+      "severity": "high",
+      "category": "network",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "$APP.use(cors({ origin: '*' }))",
+      "pattern-mode": "ast",
+      "fix": "Replace wildcard origin with specific allowed domains"
+    },
+    {
+      "id": "RULE-AST-012",
+      "message": "dangerouslySetInnerHTML bypasses React's XSS protection",
+      "severity": "high",
+      "category": "injection",
+      "languages": [
+        "typescript"
+      ],
+      "pattern": "dangerouslySetInnerHTML={{ __html: $VALUE }}",
+      "pattern-mode": "ast",
+      "exclude-pattern": "DOMPurify|sanitize|purify",
+      "fix": "Sanitize HTML with DOMPurify before using dangerouslySetInnerHTML"
+    },
+    {
+      "id": "RULE-AST-013",
+      "message": "JWT signing \u2014 ensure secret is from environment, not hardcoded",
+      "severity": "high",
+      "category": "auth",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "jwt.sign($PAYLOAD, $SECRET)",
+      "pattern-mode": "ast",
+      "exclude-pattern": "process\\.env|config\\.",
+      "fix": "Use an environment variable for the JWT secret: jwt.sign(payload, process.env.JWT_SECRET)"
+    },
+    {
+      "id": "RULE-AST-014",
+      "message": "JWT verification \u2014 ensure secret matches signing key and algorithm is pinned",
+      "severity": "high",
+      "category": "auth",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "jwt.verify($TOKEN, $SECRET)",
+      "pattern-mode": "ast",
+      "fix": "Pin the algorithm: jwt.verify(token, secret, { algorithms: ['HS256'] })"
+    },
+    {
+      "id": "RULE-AST-015",
+      "message": "exec() runs shell commands. Never pass unsanitized user input.",
+      "severity": "critical",
+      "category": "injection",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "exec($CMD)",
+      "pattern-mode": "ast",
+      "exclude-pattern": "execFile|RegExp|test\\(|regex",
+      "fix": "Use execFile() with an argument array instead of exec() with a command string"
+    },
+    {
+      "id": "RULE-AST-016",
+      "message": "execSync() runs shell commands synchronously. Avoid with user input.",
+      "severity": "critical",
+      "category": "injection",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "execSync($CMD)",
+      "pattern-mode": "ast",
+      "fix": "Use execFileSync() with an argument array, or validate/escape the command"
+    },
+    {
+      "id": "RULE-AST-017",
+      "message": "fs.readFileSync with dynamic path may allow path traversal",
+      "severity": "medium",
+      "category": "injection",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "fs.readFileSync($PATH)",
+      "pattern-mode": "ast",
+      "exclude-pattern": "path\\.join.*__dirname|path\\.resolve.*__dirname|\\.json",
+      "fix": "Validate and normalize file paths with path.resolve() and check they stay within allowed directories"
+    },
+    {
+      "id": "RULE-AST-018",
+      "message": "fs.writeFileSync with dynamic path may allow arbitrary file write",
+      "severity": "high",
+      "category": "injection",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "fs.writeFileSync($PATH, $DATA)",
+      "pattern-mode": "ast",
+      "exclude-pattern": "path\\.join.*__dirname|path\\.resolve.*__dirname",
+      "fix": "Validate and normalize file paths; ensure they stay within an allowed directory"
+    },
+    {
+      "id": "RULE-AST-019",
+      "message": "express.json() without size limit allows request body DoS",
+      "severity": "medium",
+      "category": "dos",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "express.json()",
+      "pattern-mode": "ast",
+      "fix": "Add a size limit: express.json({ limit: '1mb' })"
+    },
+    {
+      "id": "RULE-AST-020",
+      "message": "Cookie set without security options (httpOnly, secure, sameSite)",
+      "severity": "high",
+      "category": "auth",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "res.cookie($NAME, $VALUE)",
+      "pattern-mode": "ast",
+      "exclude-pattern": "httpOnly|secure|sameSite",
+      "fix": "Set security options: res.cookie(name, value, { httpOnly: true, secure: true, sameSite: 'strict' })"
+    },
+    {
+      "id": "RULE-AST-023",
+      "message": "Direct assignment to window.location can enable open redirect attacks",
+      "severity": "high",
+      "category": "injection",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "window.location = $URL",
+      "pattern-mode": "ast",
+      "exclude-pattern": "allowlist|whitelist|validUrl|safeUrl",
+      "fix": "Validate the URL against a known allowlist before redirecting"
+    },
+    {
+      "id": "RULE-AST-026",
+      "message": "SQL query with string concatenation inside an arrow function",
+      "severity": "critical",
+      "category": "injection",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "$DB.query($SQL)",
+      "inside": {
+        "kind": "arrow_function"
+      },
+      "has": {
+        "regex": "\\$\\{|\\+"
+      },
+      "pattern-mode": "ast",
+      "fix": "Use parameterized queries: db.query('SELECT * WHERE id = $1', [id])"
+    },
+    {
+      "id": "RULE-AST-027",
+      "message": "eval() without error handling",
+      "severity": "critical",
+      "category": "injection",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "eval($CODE)",
+      "not": {
+        "inside": {
+          "kind": "try_statement"
+        }
+      },
+      "pattern-mode": "ast",
+      "fix": "Remove eval entirely, or at minimum wrap in try/catch"
+    },
+    {
+      "id": "RULE-AST-028",
+      "message": "Cookie set without httpOnly security option",
+      "severity": "high",
+      "category": "auth",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "res.cookie($NAME, $VALUE, $OPTS)",
+      "has-not": {
+        "regex": "httpOnly"
+      },
+      "pattern-mode": "ast",
+      "fix": "Add httpOnly: true to cookie options"
+    },
+    {
+      "id": "RULE-AST-030",
+      "message": "fs.readFileSync inside an exported function may block the event loop",
+      "severity": "high",
+      "category": "injection",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "fs.readFileSync($PATH)",
+      "inside": {
+        "kind": "arrow_function"
+      },
+      "pattern-mode": "ast",
+      "fix": "Use fs.promises.readFile() or fs.readFile() with a callback instead of blocking I/O in handlers"
+    },
+    {
+      "id": "RULE-AST-033",
+      "message": "jwt.sign with a hardcoded string secret",
+      "severity": "critical",
+      "category": "secrets",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "jwt.sign($PAYLOAD, $SECRET)",
+      "has": {
+        "kind": "string"
+      },
+      "pattern-mode": "ast",
+      "fix": "Use an environment variable or key management service for the JWT secret"
+    },
+    {
+      "id": "RULE-AST-034",
+      "message": "exec/execSync inside an arrow function handler may allow command injection",
+      "severity": "critical",
+      "category": "injection",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "execSync($CMD)",
+      "inside": {
+        "kind": "arrow_function"
+      },
+      "pattern-mode": "ast",
+      "fix": "Use execFile or execFileSync with an argument array instead of exec with string interpolation"
+    },
+    {
+      "id": "RULE-AST-035",
+      "message": "exec() inside an arrow function handler may allow command injection",
+      "severity": "critical",
+      "category": "injection",
+      "languages": [
+        "javascript",
+        "typescript"
+      ],
+      "pattern": "exec($CMD)",
+      "inside": {
+        "kind": "arrow_function"
+      },
+      "pattern-mode": "ast",
+      "exclude-pattern": "execFile|regex\\.exec|re\\.exec",
+      "fix": "Use execFile with an argument array instead of exec with string interpolation"
+    },
+    {
+      "id": "RULE-AST-PY001",
+      "message": "cursor.execute() with f-string or format string \u2014 SQL injection risk",
+      "severity": "critical",
+      "category": "injection",
+      "languages": [
+        "python"
+      ],
+      "kind": "call",
+      "regex": "\\.execute\\(",
+      "pattern-mode": "ast",
+      "exclude-pattern": "parameterized|%s.*,|\\?.*,",
+      "fix": "Use parameterized queries: cursor.execute('SELECT * WHERE id = %s', (id,))"
+    },
+    {
+      "id": "RULE-AST-PY002",
+      "message": "os.system() executes shell commands \u2014 use subprocess with shell=False",
+      "severity": "critical",
+      "category": "injection",
+      "languages": [
+        "python"
+      ],
+      "kind": "call",
+      "regex": "os\\.system",
+      "pattern-mode": "ast",
+      "fix": "Use subprocess.run(['cmd', 'arg'], shell=False) instead of os.system()"
+    },
+    {
+      "id": "RULE-AST-PY003",
+      "message": "pickle.load/loads deserializes arbitrary objects \u2014 code execution risk",
+      "severity": "critical",
+      "category": "injection",
+      "languages": [
+        "python"
+      ],
+      "kind": "call",
+      "regex": "pickle\\.load",
+      "pattern-mode": "ast",
+      "fix": "Use JSON, MessagePack, or another safe serialization format instead of pickle"
+    },
+    {
+      "id": "RULE-AST-PY004",
+      "message": "yaml.load() without SafeLoader can execute arbitrary code",
+      "severity": "high",
+      "category": "injection",
+      "languages": [
+        "python"
+      ],
+      "kind": "call",
+      "regex": "yaml\\.load",
+      "pattern-mode": "ast",
+      "exclude-pattern": "SafeLoader|safe_load|CSafeLoader",
+      "fix": "Use yaml.safe_load() or yaml.load(data, Loader=yaml.SafeLoader)"
+    },
+    {
+      "id": "RULE-AST-PY005",
+      "message": "eval() executes arbitrary code \u2014 never use with untrusted input",
+      "severity": "critical",
+      "category": "injection",
+      "languages": [
+        "python"
+      ],
+      "kind": "call",
+      "regex": "^eval\\(",
+      "pattern-mode": "ast",
+      "fix": "Use ast.literal_eval() for safe evaluation of literals, or avoid eval entirely"
+    },
+    {
+      "id": "RULE-AST-GO001",
+      "message": "db.Query/Exec with string concatenation \u2014 SQL injection risk",
+      "severity": "critical",
+      "category": "injection",
+      "languages": [
+        "go"
+      ],
+      "kind": "call_expression",
+      "regex": "\\.(?:Query|Exec|QueryRow)\\([\\s\\S]*\\+",
+      "pattern-mode": "ast",
+      "fix": "Use parameterized queries: db.Query('SELECT * WHERE id = $1', id)"
+    },
+    {
+      "id": "RULE-AST-GO002",
+      "message": "exec.Command runs shell commands \u2014 validate input carefully",
+      "severity": "high",
+      "category": "injection",
+      "languages": [
+        "go"
+      ],
+      "kind": "call_expression",
+      "regex": "exec\\.Command",
+      "pattern-mode": "ast",
+      "exclude-pattern": "allowlist|whitelist|sanitize",
+      "fix": "Avoid passing user input to exec.Command. Use an allowlist of permitted commands."
+    },
+    {
+      "id": "RULE-AST-GO003",
+      "message": "InsecureSkipVerify disables TLS certificate validation",
+      "severity": "high",
+      "category": "crypto",
+      "languages": [
+        "go"
+      ],
+      "kind": "keyed_element",
+      "regex": "InsecureSkipVerify.*true",
+      "pattern-mode": "ast",
+      "fix": "Remove InsecureSkipVerify: true \u2014 validate TLS certificates in production"
+    },
+    {
+      "id": "RULE-AST-GO004",
+      "message": "http.ListenAndServe without TLS \u2014 use ListenAndServeTLS for production",
+      "severity": "medium",
+      "category": "network",
+      "languages": [
+        "go"
+      ],
+      "kind": "call_expression",
+      "regex": "ListenAndServe[^T]",
+      "pattern-mode": "ast",
+      "exclude-pattern": "ListenAndServeTLS|test|localhost|127\\.0\\.0\\.1",
+      "fix": "Use http.ListenAndServeTLS() with valid certificates for production deployments"
+    },
+    {
+      "id": "RULE-AST-GO005",
+      "message": "fmt.Sprintf used to build SQL query \u2014 SQL injection risk",
+      "severity": "critical",
+      "category": "injection",
+      "languages": [
+        "go"
+      ],
+      "kind": "call_expression",
+      "regex": "fmt\\.Sprintf",
+      "has": {
+        "regex": "SELECT|INSERT|UPDATE|DELETE|DROP"
+      },
+      "pattern-mode": "ast",
+      "fix": "Use parameterized queries instead of fmt.Sprintf for SQL statements"
+    },
+    {
+      "id": "RULE-AST-RB001",
+      "message": "ActiveRecord .where with string interpolation \u2014 SQL injection risk",
+      "severity": "critical",
+      "category": "injection",
+      "languages": [
+        "ruby"
+      ],
+      "kind": "call",
+      "regex": "\\.where.*#\\{",
+      "pattern-mode": "ast",
+      "fix": "Use parameterized queries: Model.where('col = ?', value) or .where(col: value)"
+    },
+    {
+      "id": "RULE-AST-RB002",
+      "message": "system() executes shell commands \u2014 validate input carefully",
+      "severity": "critical",
+      "category": "injection",
+      "languages": [
+        "ruby"
+      ],
+      "kind": "call",
+      "regex": "^system\\(",
+      "pattern-mode": "ast",
+      "exclude-pattern": "allowlist|whitelist|sanitize",
+      "fix": "Use array form system('cmd', 'arg') to avoid shell injection, or validate input"
+    },
+    {
+      "id": "RULE-AST-RB003",
+      "message": "Marshal.load deserializes arbitrary objects \u2014 code execution risk",
+      "severity": "critical",
+      "category": "injection",
+      "languages": [
+        "ruby"
+      ],
+      "kind": "call",
+      "regex": "Marshal\\.load",
+      "pattern-mode": "ast",
+      "fix": "Use JSON.parse or a safe serialization format instead of Marshal.load"
+    },
+    {
+      "id": "RULE-AST-RB004",
+      "message": "YAML.load can execute arbitrary code \u2014 use YAML.safe_load",
+      "severity": "high",
+      "category": "injection",
+      "languages": [
+        "ruby"
+      ],
+      "kind": "call",
+      "regex": "YAML\\.load[^_]",
+      "pattern-mode": "ast",
+      "exclude-pattern": "safe_load|permitted_classes",
+      "fix": "Use YAML.safe_load(data) instead of YAML.load(data)"
+    },
+    {
+      "id": "RULE-AST-RB005",
+      "message": "params.permit! allows all parameters \u2014 mass assignment vulnerability",
+      "severity": "high",
+      "category": "injection",
+      "languages": [
+        "ruby"
+      ],
+      "kind": "call",
+      "regex": "\\.permit!",
+      "pattern-mode": "ast",
+      "fix": "Use params.permit(:field1, :field2) to explicitly allowlist permitted parameters"
+    },
+    {
+      "id": "RULE-CRYPTO001",
+      "message": "DES encryption is broken and should not be used",
+      "severity": "critical",
+      "category": "crypto",
+      "languages": ["javascript", "typescript"],
+      "pattern": "createCipheriv\\s*\\(\\s*['\"]des",
+      "fix": "Use AES-256-GCM or AES-256-CBC instead of DES."
+    },
+    {
+      "id": "RULE-CRYPTO002",
+      "message": "RC4 cipher is broken and should not be used",
+      "severity": "critical",
+      "category": "crypto",
+      "languages": ["javascript", "typescript"],
+      "pattern": "createCipheriv\\s*\\(\\s*['\"]rc4",
+      "fix": "Use AES-256-GCM instead of RC4."
+    },
+    {
+      "id": "RULE-CRYPTO003",
+      "message": "Blowfish cipher is weak. Use AES instead.",
+      "severity": "high",
+      "category": "crypto",
+      "languages": ["javascript", "typescript"],
+      "pattern": "createCipheriv\\s*\\(\\s*['\"]bf",
+      "fix": "Use AES-256-GCM instead of Blowfish."
+    }
+  ]
+}
