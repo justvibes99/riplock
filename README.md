@@ -329,13 +329,17 @@ Then run `/security-review` in any project. RipLock handles the O(n) file scanni
 
 Findings with 4+ occurrences are automatically grouped with the top 3 examples shown. Each grouped finding includes a suppress hint.
 
-## What RipLock Doesn't Catch
+## Limitations
 
-- **Cross-file taint beyond 3 levels** — deep call chains through many modules
-- **Business logic flaws** — authorization errors that require understanding your app's intent
-- **Runtime behavior** — memory leaks, timing attacks in practice
-- **Typosquatting** — detecting that `lod-ash` is not `lodash` requires registry metadata
-- **Cloud console settings** — configurations not captured in IaC
+RipLock is a first line of defense, not a guarantee. It catches known vulnerability patterns and common supply chain attack techniques, but:
+
+- **It is not a substitute for professional security review.** Static analysis finds what it's been taught to look for. Business logic flaws, novel attack techniques, and subtle backdoors require human judgment.
+- **A clean `scan-pkg` result does not mean a package is safe.** It means the package didn't match any of the 12 supply chain patterns RipLock checks. Sophisticated attackers can craft payloads that evade pattern matching.
+- **Cross-file taint tracking has depth limits** — call chains beyond 3 import levels are not followed.
+- **Typosquatting is not detected** — telling `lod-ash` from `lodash` requires registry metadata, not code analysis.
+- **Runtime behavior is not analyzed** — memory leaks, race conditions, and timing attacks require dynamic testing.
+
+Use RipLock alongside — not instead of — dependency auditing (`npm audit`, Dependabot/Renovate), lockfile enforcement, code review, and periodic professional penetration testing.
 
 ## License
 
