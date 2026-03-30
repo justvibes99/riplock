@@ -1,5 +1,5 @@
 {
-  "name": "riplock",
+  "name": "riplock-cli",
   "version": "2.0.0",
   "description": "Security scanner with AST taint tracking — we're watching your back so you can let it rip",
   "type": "module",

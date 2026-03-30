@@ -9,8 +9,8 @@ RipLock scans your codebase for security vulnerabilities using AST taint trackin
 ## Quick Start
 
 ```bash
-npx riplock                               # Scan your code
-npx riplock scan-pkg express axios         # Scan packages before installing
+npx riplock-cli-cli                            # Scan your code
+npx riplock-cli-cli scan-pkg express axios     # Scan packages before installing
 ```
 
 ## How It Works
@@ -67,26 +67,26 @@ Terraform, Kubernetes, Helm, CloudFormation, Docker, Nginx, Apache, Ansible, Ser
 ### Scan your code
 
 ```bash
-npx riplock                           # Scan current directory
-npx riplock ./my-project              # Scan a specific path
-npx riplock --severity high           # Only critical + high findings
-npx riplock --json                    # JSON output for CI
-npx riplock --sarif                   # SARIF 2.1.0 for GitHub Code Scanning
-npx riplock --ignore SEC007 GIT010    # Skip specific checks
-npx riplock --exclude 'tests/**'      # Exclude files by glob pattern
-npx riplock --no-deps                 # Skip npm audit (faster)
-npx riplock --scan-deps               # Scan installed dependencies (node_modules etc.)
-npx riplock --list-checks             # Show all checks
-npx riplock --verbose                 # Show timing and debug info
+npx riplock-cli                           # Scan current directory
+npx riplock-cli ./my-project              # Scan a specific path
+npx riplock-cli --severity high           # Only critical + high findings
+npx riplock-cli --json                    # JSON output for CI
+npx riplock-cli --sarif                   # SARIF 2.1.0 for GitHub Code Scanning
+npx riplock-cli --ignore SEC007 GIT010    # Skip specific checks
+npx riplock-cli --exclude 'tests/**'      # Exclude files by glob pattern
+npx riplock-cli --no-deps                 # Skip npm audit (faster)
+npx riplock-cli --scan-deps               # Scan installed dependencies (node_modules etc.)
+npx riplock-cli --list-checks             # Show all checks
+npx riplock-cli --verbose                 # Show timing and debug info
 ```
 
 ### Scan packages before installing
 
 ```bash
-npx riplock scan-pkg express@4.21.2           # Scan an npm package
-npx riplock scan-pkg requests==2.31.0 --pip   # Scan a pip package
-npx riplock scan-pkg lodash moment axios      # Scan multiple packages
-npx riplock scan-pkg express --json           # JSON output for automation
+npx riplock-cli scan-pkg express@4.21.2           # Scan an npm package
+npx riplock-cli scan-pkg requests==2.31.0 --pip   # Scan a pip package
+npx riplock-cli scan-pkg lodash moment axios      # Scan multiple packages
+npx riplock-cli scan-pkg express --json           # JSON output for automation
 ```
 
 Downloads the package tarball without installing, extracts it to a temp directory, runs 12 supply chain checks (credential exfiltration, reverse shells, install script attacks, obfuscated code, cryptominers, etc.), and cleans up. Use this to vet packages before adding them to your project.
@@ -118,7 +118,7 @@ Downloads the package tarball without installing, extracts it to a temp director
 
 | **Supply Chain** | 12 | Credential exfiltration, reverse shells, install script attacks, obfuscated code, cryptominers, .pth code execution, DNS exfiltration, system persistence |
 
-Run `npx riplock --list-checks` for the full catalog.
+Run `npx riplock-cli --list-checks` for the full catalog.
 
 ## Custom Rules
 
@@ -163,11 +163,11 @@ Create `.riplock.json` in your project root:
 
 ```yaml
 - name: Security scan
-  run: npx riplock --severity high
+  run: npx riplock-cli --severity high
 
 # With SARIF upload to GitHub Code Scanning:
 - name: Security scan (SARIF)
-  run: npx riplock --sarif > results.sarif
+  run: npx riplock-cli --sarif > results.sarif
   continue-on-error: true
 - name: Upload SARIF
   uses: github/codeql-action/upload-sarif@v3
@@ -180,7 +180,7 @@ Create `.riplock.json` in your project root:
 
 ```yaml
 security_scan:
-  script: npx riplock --severity high --json > riplock.json
+  script: npx riplock-cli --severity high --json > riplock.json
   artifacts:
     reports:
       security: riplock.json
@@ -287,7 +287,7 @@ user-invocable: true
 Run RipLock against the current project:
 
 \`\`\`bash
-npx riplock . --no-deps --json
+npx riplock-cli . --no-deps --json
 \`\`\`
 
 Parse the JSON output. Summarize findings by severity with the top 5 most

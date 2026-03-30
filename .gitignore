@@ -14,3 +14,4 @@ coverage/
 *.log
 .idea/
 .vscode/
+.npmrc
