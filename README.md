@@ -173,9 +173,22 @@ security_scan:
 
 RipLock scans every file systematically in milliseconds — something that would cost an AI assistant 200K+ tokens to do by reading files one at a time. Run RipLock first, then let your AI focus on the findings that need judgment.
 
-### Claude Code / Cursor / AI IDEs
+### Option 1: Manual
 
-Add to your project's `CLAUDE.md` (or equivalent AI instructions file):
+Run it yourself and share findings with your AI:
+
+```bash
+riplock . --severity high
+# Copy interesting findings into your AI conversation
+
+# Or pipe JSON directly:
+riplock . --json | pbcopy
+# Then: "Here are the security findings — fix them"
+```
+
+### Option 2: AI instructions (recommended)
+
+Add to your project's `CLAUDE.md`, `.cursorrules`, or equivalent instructions file:
 
 ```markdown
 ## Security
@@ -186,18 +199,26 @@ Before committing or creating a PR, run a security scan:
 Fix any critical or high findings before proceeding.
 ```
 
-Your AI assistant will run the scan as part of its workflow, read the findings, and fix them with full context of what the code is supposed to do.
+Your AI assistant will run the scan as part of its workflow, read the findings, and fix them with full context of what the code is supposed to do. This is the best balance of coverage and simplicity.
 
-### Direct usage
+### Option 3: Automated hook
 
-```bash
-# Scan and pipe findings to your AI
-riplock . --json | pbcopy
-# Then paste into your AI conversation: "Here are the security findings, fix them"
+Set up a Claude Code hook that runs RipLock after code changes and surfaces findings as warnings in your conversation. Add to your Claude Code settings:
 
-# Or let the AI run it directly
-riplock . --severity high
+```json
+{
+  "hooks": {
+    "postToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "command": "riplock . --no-deps --severity critical --json 2>/dev/null | node -e \"const d=JSON.parse(require('fs').readFileSync('/dev/stdin','utf8')); if(d.stats.critical>0) console.log('⚠️ RipLock: '+d.stats.critical+' critical findings')\""
+      }
+    ]
+  }
+}
 ```
+
+This runs a fast critical-only scan after every file edit and warns you immediately if something dangerous is introduced.
 
 ## Exit Codes
 
