@@ -220,6 +220,45 @@ Set up a Claude Code hook that runs RipLock after code changes and surfaces find
 
 This runs a fast critical-only scan after every file edit and warns you immediately if something dangerous is introduced.
 
+### Option 4: Claude Code skill (most powerful)
+
+Create `~/.claude/skills/security-review.md` to get a `/security-review` slash command that combines RipLock's systematic scan with Claude's contextual review:
+
+```markdown
+---
+name: security-review
+description: Combined static + contextual security review
+user-invocable: true
+---
+
+# Security Review
+
+## Phase 1: RipLock Static Analysis
+
+Run RipLock against the current project:
+
+\`\`\`bash
+node ~/code/riplock/dist/index.js . --no-deps --json
+\`\`\`
+
+Parse the JSON output. Summarize findings by severity with the top 5 most
+important issues, their taint flow paths, and fix suggestions.
+
+## Phase 2: Contextual Review
+
+After RipLock completes, review the codebase for issues static analysis misses:
+
+1. **Business Logic** — payment flows, authorization bypasses, workflow ordering
+2. **Auth Architecture** — middleware ordering, inconsistent auth, privilege escalation
+3. **Data Exposure** — over-fetched API responses, server data leaking to client
+4. **Architectural Risks** — secrets management, missing rate limiting, error handling
+
+Read the key files and report contextual issues with specific fix suggestions.
+End with a prioritized action list.
+```
+
+Then run `/security-review` in any project. RipLock handles the O(n) file scanning, Claude handles the contextual judgment.
+
 ## Exit Codes
 
 | Code | Meaning |
