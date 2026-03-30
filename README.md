@@ -169,6 +169,36 @@ security_scan:
       security: riplock.json
 ```
 
+## Using with AI Coding Assistants
+
+RipLock scans every file systematically in milliseconds — something that would cost an AI assistant 200K+ tokens to do by reading files one at a time. Run RipLock first, then let your AI focus on the findings that need judgment.
+
+### Claude Code / Cursor / AI IDEs
+
+Add to your project's `CLAUDE.md` (or equivalent AI instructions file):
+
+```markdown
+## Security
+
+Before committing or creating a PR, run a security scan:
+  riplock . --no-deps --severity high
+
+Fix any critical or high findings before proceeding.
+```
+
+Your AI assistant will run the scan as part of its workflow, read the findings, and fix them with full context of what the code is supposed to do.
+
+### Direct usage
+
+```bash
+# Scan and pipe findings to your AI
+riplock . --json | pbcopy
+# Then paste into your AI conversation: "Here are the security findings, fix them"
+
+# Or let the AI run it directly
+riplock . --severity high
+```
+
 ## Exit Codes
 
 | Code | Meaning |
