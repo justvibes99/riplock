@@ -1,14 +1,22 @@
 /**
  * Shared tree-sitter AST traversal helpers.
  * Used by taint-tracker.ts, cross-file-taint.ts, ast/index.ts, and ast-pattern.ts.
- *
- * Note: tree-sitter SyntaxNode is typed as `any` because web-tree-sitter
- * and ast-grep expose different node APIs. A shared typed interface would
- * require runtime abstraction overhead.
  */
+import type { AstLanguage } from '../checks/types.js';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type SyntaxNode = any;
+/** Minimal interface matching the web-tree-sitter / ast-grep SyntaxNode shape. */
+export interface SyntaxNode {
+  type: string;
+  text: string;
+  childCount: number;
+  child(index: number): SyntaxNode | null;
+  childForFieldName(name: string): SyntaxNode | null;
+  startPosition: { row: number; column: number };
+  endPosition: { row: number; column: number };
+  parent: SyntaxNode | null;
+  /** True for named nodes (not punctuation/anonymous). */
+  isNamed?: boolean;
+}
 
 /** Walk the entire AST subtree rooted at `node`, calling `callback` on every node. */
 export function walkTree(node: SyntaxNode, callback: (n: SyntaxNode) => void): void {
@@ -77,4 +85,88 @@ export function getMemberExpressionText(node: SyntaxNode): string {
     if (obj && name) return getMemberExpressionText(obj) + '.' + name.text;
   }
   return node.text;
+}
+
+/**
+ * Check if `node` or any of its descendants references any variable in `taintedVars`.
+ * Returns the name of the first tainted variable found, or null.
+ *
+ * Language-aware: handles JS/TS member_expression, Python attribute,
+ * Go selector_expression, Ruby element_reference/params, and PHP superglobals.
+ */
+export function containsTaintedRef(node: SyntaxNode, taintedVars: Set<string>, language?: AstLanguage): string | null {
+  if (node.type === 'identifier' && taintedVars.has(node.text)) {
+    return node.text;
+  }
+  // For shorthand property {x} in object pattern/literal, the identifier is the key
+  if (node.type === 'shorthand_property_identifier_pattern' && taintedVars.has(node.text)) {
+    return node.text;
+  }
+  // PHP: variable_name nodes contain the $ prefix in .text
+  if (node.type === 'variable_name' && taintedVars.has(node.text)) {
+    return node.text;
+  }
+
+  // Check if a member-like expression's full dotted text matches a tainted key
+  if (MEMBER_EXPRESSION_TYPES.has(node.type)) {
+    const fullText = getMemberExpressionText(node);
+    if (taintedVars.has(fullText)) {
+      return fullText;
+    }
+    // JS/TS: catch direct user input references (req.body.*, etc.)
+    if (!language || language === 'javascript' || language === 'typescript' || language === 'tsx') {
+      if (/^req\.(body|params|query|headers|cookies)(\.|$|\[)/.test(fullText) ||
+          /^request\.(body|params|query|headers|cookies)(\.|$|\[)/.test(fullText)) {
+        return fullText;
+      }
+    }
+    // Python: request.form, request.args, request.data, request.json, request.POST, request.GET
+    if (language === 'python') {
+      if (/^request\.(form|args|data|json|POST|GET|FILES|values)(\.|$|\[)/.test(fullText) ||
+          /^self\.request\.(data|query_params)(\.|$|\[)/.test(fullText)) {
+        return fullText;
+      }
+    }
+    // Go: r.FormValue, r.Body, r.URL.Query, c.Param, c.Query, c.FormValue
+    if (language === 'go') {
+      if (/^r\.(Body|Form|PostForm|MultipartForm)$/.test(fullText) ||
+          /^r\.URL\.Query$/.test(fullText) ||
+          /^c\.(Param|Query|PostForm|FormValue|DefaultQuery)$/.test(fullText)) {
+        return fullText;
+      }
+    }
+    // Ruby: params access via method call
+    if (language === 'ruby') {
+      if (/^request\.body$/.test(fullText) || /^request\.params$/.test(fullText)) {
+        return fullText;
+      }
+    }
+  }
+
+  // Ruby: element_reference for params[:field]
+  if (language === 'ruby' && node.type === 'element_reference') {
+    const obj = node.child(0);
+    if (obj && obj.type === 'identifier' && obj.text === 'params') {
+      return node.text;
+    }
+  }
+
+  // PHP: subscript_expression for $_GET['field'], $_POST['field'], etc.
+  if (language === 'php' && node.type === 'subscript_expression') {
+    const obj = node.child(0);
+    if (obj && obj.type === 'variable_name' &&
+        /^\$_(GET|POST|REQUEST|FILES|COOKIE|SERVER)$/.test(obj.text)) {
+      return node.text;
+    }
+  }
+
+  const count: number = node.childCount;
+  for (let i = 0; i < count; i++) {
+    const child = node.child(i);
+    if (child) {
+      const found = containsTaintedRef(child, taintedVars, language);
+      if (found) return found;
+    }
+  }
+  return null;
 }

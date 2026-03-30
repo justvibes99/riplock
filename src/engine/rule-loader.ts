@@ -222,6 +222,21 @@ function mapCategory(category: string): CheckCategory {
 // ---------------------------------------------------------------------------
 
 /**
+ * Basic ReDoS safety check for user-provided regex patterns.
+ * Rejects patterns with known catastrophic backtracking triggers:
+ * - Nested quantifiers: (a+)+ or (a*)*
+ * - Overlapping alternations with quantifiers: (a|a)+
+ * - Extremely long patterns
+ */
+function isSafeRegex(pattern: string): boolean {
+  if (pattern.length > 1000) return false;
+  // Check for nested quantifiers (simplified check)
+  if (/\([^)]*[+*]\)[+*]/.test(pattern)) return false;
+  if (/\([^)]*\|[^)]*\)[+*]/.test(pattern)) return false;
+  return true;
+}
+
+/**
  * Converts a rule pattern string to a compiled RegExp.
  * Patterns are already regex strings — we just compile them.
  * Supports $VAR metavariables: replaced with identifier capture groups.
@@ -233,6 +248,10 @@ function compilePattern(pattern: string): RegExp {
   const isRawRegex = /\\[sSwWdDbB()\[\]]|(?:\[[\^]|\(\?[:!=])/.test(pattern);
 
   if (isRawRegex) {
+    // Safety check before compiling user-provided regex
+    if (!isSafeRegex(pattern)) {
+      throw new Error(`Potentially unsafe regex pattern (ReDoS risk): ${pattern.slice(0, 50)}...`);
+    }
     // Treat as raw regex — compile directly
     return new RegExp(pattern, 'gi');
   }
@@ -241,6 +260,12 @@ function compilePattern(pattern: string): RegExp {
   let regexStr = pattern;
   regexStr = regexStr.replace(/\$[A-Z_][A-Z0-9_]*/g, '([A-Za-z_$][A-Za-z0-9_$.]*)');
   regexStr = regexStr.replace(/\.\.\./g, '[\\s\\S]*?');
+
+  // Safety check on the expanded DSL pattern
+  if (!isSafeRegex(regexStr)) {
+    throw new Error(`Potentially unsafe regex pattern (ReDoS risk): ${pattern.slice(0, 50)}...`);
+  }
+
   return new RegExp(regexStr, 'g');
 }
 

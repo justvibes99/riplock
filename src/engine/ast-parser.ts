@@ -42,6 +42,7 @@ let initPromise: Promise<void> | null = null;
 const loadedLanguages = new Map<AstLanguage, any>();    // AstLanguage → Language instance
 const parsers = new Map<AstLanguage, any>();             // AstLanguage → Parser instance
 const treeCache = new Map<string, ParsedFile>();         // absolutePath → ParsedFile
+const MAX_CACHE_SIZE = 500;
 
 let verbose = false;
 
@@ -152,6 +153,13 @@ export async function parseFile(file: FileEntry): Promise<ParsedFile | null> {
     };
 
     treeCache.set(file.absolutePath, result);
+
+    // LRU eviction: Maps maintain insertion order, so oldest entry is first
+    if (treeCache.size > MAX_CACHE_SIZE) {
+      const oldest = treeCache.keys().next().value;
+      if (oldest) treeCache.delete(oldest);
+    }
+
     return result;
   } catch (err) {
     if (verbose) {

@@ -186,6 +186,7 @@ export interface AstCheckContext {
 export interface AstCheck extends CheckBase {
   level: 'ast';
   languages: AstLanguage[];
+  sinkCategories?: SinkCategory[];
   analyze(astCtx: AstCheckContext): Finding[];
 }
 

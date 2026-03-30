@@ -1,4 +1,4 @@
-import type { AstCheck, AstCheckContext, CheckDefinition, FileEntry, Finding, TaintPath } from '../types.js';
+import type { AstCheck, AstCheckContext, CheckDefinition, FileEntry, Finding, SinkCategory, TaintPath } from '../types.js';
 
 // ── Helpers ────────────────────────────────────────────────────────────
 
@@ -37,7 +37,7 @@ function taintFinding(
   };
 }
 
-import { walkTree } from '../../engine/ast-helpers.js';
+import { walkTree, type SyntaxNode } from '../../engine/ast-helpers.js';
 
 // ── AST-INJ001: SQL Injection (Taint-Tracked) ─────────────────────────
 
@@ -49,6 +49,7 @@ const astInj001: AstCheck = {
   category: 'injection',
   defaultSeverity: 'critical',
   languages: ['javascript', 'typescript', 'tsx', 'python', 'go', 'ruby', 'php'],
+  sinkCategories: ['sql-query'],
   analyze(astCtx: AstCheckContext): Finding[] {
     const paths = astCtx.findTaintPaths({ sinkCategories: ['sql-query'] });
     return paths.map(p =>
@@ -77,6 +78,7 @@ const astInj002: AstCheck = {
   category: 'injection',
   defaultSeverity: 'critical',
   languages: ['javascript', 'typescript', 'tsx', 'python', 'go', 'ruby', 'php'],
+  sinkCategories: ['shell-exec'],
   analyze(astCtx: AstCheckContext): Finding[] {
     const paths = astCtx.findTaintPaths({ sinkCategories: ['shell-exec'] });
     return paths.map(p =>
@@ -105,6 +107,7 @@ const astInj003: AstCheck = {
   category: 'injection',
   defaultSeverity: 'critical',
   languages: ['javascript', 'typescript', 'tsx', 'python', 'go', 'php'],
+  sinkCategories: ['ssrf'],
   analyze(astCtx: AstCheckContext): Finding[] {
     const paths = astCtx.findTaintPaths({ sinkCategories: ['ssrf'] });
     return paths.map(p =>
@@ -134,6 +137,7 @@ const astInj004: AstCheck = {
   category: 'injection',
   defaultSeverity: 'high',
   languages: ['javascript', 'typescript', 'tsx', 'php'],
+  sinkCategories: ['xss'],
   analyze(astCtx: AstCheckContext): Finding[] {
     const paths = astCtx.findTaintPaths({ sinkCategories: ['xss'] });
     return paths.map(p =>
@@ -162,6 +166,7 @@ const astInj005: AstCheck = {
   category: 'injection',
   defaultSeverity: 'high',
   languages: ['javascript', 'typescript', 'tsx', 'python', 'go', 'ruby', 'php'],
+  sinkCategories: ['path-traversal'],
   analyze(astCtx: AstCheckContext): Finding[] {
     const paths = astCtx.findTaintPaths({ sinkCategories: ['path-traversal'] });
     return paths.map(p =>
@@ -197,7 +202,7 @@ const astAuth001: AstCheck = {
   analyze(astCtx: AstCheckContext): Finding[] {
     const findings: Finding[] = [];
 
-    walkTree(astCtx.rootNode, (node: any) => {
+    walkTree(astCtx.rootNode as SyntaxNode, (node) => {
       // Look for jsx_attribute nodes
       if (node.type !== 'jsx_attribute') return;
 

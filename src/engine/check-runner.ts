@@ -215,12 +215,11 @@ async function runAstChecks(
     // Collect all sink categories from AST checks
     const allSinkCategories = new Set<import('../checks/types.js').SinkCategory>();
     for (const check of checks) {
-      // Infer sink categories from check IDs
-      if (check.id.includes('INJ001')) allSinkCategories.add('sql-query');
-      if (check.id.includes('INJ002')) allSinkCategories.add('shell-exec');
-      if (check.id.includes('INJ003')) allSinkCategories.add('ssrf');
-      if (check.id.includes('INJ004')) allSinkCategories.add('xss');
-      if (check.id.includes('INJ005')) allSinkCategories.add('path-traversal');
+      if (check.sinkCategories) {
+        for (const cat of check.sinkCategories) {
+          allSinkCategories.add(cat);
+        }
+      }
     }
     // If no specific categories matched, use all
     if (allSinkCategories.size === 0) {

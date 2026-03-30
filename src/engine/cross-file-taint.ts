@@ -37,33 +37,7 @@ interface FunctionTaintSig {
 }
 
 // ── Shared AST helpers ──
-import { walkTree, findNodes, getMemberExpressionText } from './ast-helpers.js';
-
-function containsTaintedRef(node: any, taintedVars: Set<string>): string | null {
-  if (node.type === 'identifier' && taintedVars.has(node.text)) {
-    return node.text;
-  }
-  if (node.type === 'shorthand_property_identifier_pattern' && taintedVars.has(node.text)) {
-    return node.text;
-  }
-  if (node.type === 'member_expression') {
-    const fullText = getMemberExpressionText(node);
-    if (taintedVars.has(fullText)) return fullText;
-    if (/^req\.(body|params|query|headers|cookies)(\.|$|\[)/.test(fullText) ||
-        /^request\.(body|params|query|headers|cookies)(\.|$|\[)/.test(fullText)) {
-      return fullText;
-    }
-  }
-  const count: number = node.childCount;
-  for (let i = 0; i < count; i++) {
-    const child = node.child(i);
-    if (child) {
-      const found = containsTaintedRef(child, taintedVars);
-      if (found) return found;
-    }
-  }
-  return null;
-}
+import { walkTree, findNodes, getMemberExpressionText, containsTaintedRef } from './ast-helpers.js';
 
 // ── Module resolution ──────────────────────────────────────────────────
 
