@@ -3,6 +3,7 @@
  * Forward-propagates taint through assignments using fixpoint iteration.
  */
 import type { AstLanguage } from '../../checks/types.js';
+import type { SyntaxNode } from '../ast-helpers.js';
 import { findNodes, getMemberExpressionText } from '../ast-helpers.js';
 import { containsTaintedRef } from '../ast-helpers.js';
 import type { TaintInfo, Assignment } from './types.js';
@@ -15,7 +16,7 @@ import type { TaintInfo, Assignment } from './types.js';
  * - Ruby: assignment
  * - PHP: assignment_expression
  */
-export function findAssignments(node: any, language?: AstLanguage): Assignment[] {
+export function findAssignments(node: SyntaxNode, language?: AstLanguage): Assignment[] {
   const result: Assignment[] = [];
 
   // JS/TS: variable_declarator: const x = ...
@@ -87,7 +88,7 @@ export function findAssignments(node: any, language?: AstLanguage): Assignment[]
   if (language === 'go') {
     const shortVars = findNodes(node, 'short_var_declaration');
     for (const decl of shortVars) {
-      const children: any[] = [];
+      const children: SyntaxNode[] = [];
       for (let i = 0; i < decl.childCount; i++) {
         const child = decl.child(i);
         if (child && child.isNamed) children.push(child);
@@ -95,8 +96,8 @@ export function findAssignments(node: any, language?: AstLanguage): Assignment[]
       if (children.length >= 2) {
         const leftList = children[0];
         const rightList = children[1];
-        const leftNames: any[] = [];
-        const rightValues: any[] = [];
+        const leftNames: SyntaxNode[] = [];
+        const rightValues: SyntaxNode[] = [];
         for (let i = 0; i < leftList.childCount; i++) {
           const c = leftList.child(i);
           if (c && c.isNamed) leftNames.push(c);
@@ -124,8 +125,8 @@ export function findAssignments(node: any, language?: AstLanguage): Assignment[]
       const left = assign.childForFieldName('left');
       const right = assign.childForFieldName('right');
       if (!left || !right) continue;
-      let nameNode: any = null;
-      let valueNode: any = null;
+      let nameNode: SyntaxNode | null = null;
+      let valueNode: SyntaxNode | null = null;
       for (let i = 0; i < left.childCount; i++) {
         const c = left.child(i);
         if (c && c.isNamed) { nameNode = c; break; }
@@ -186,7 +187,7 @@ export function findAssignments(node: any, language?: AstLanguage): Assignment[]
  * Forward-propagate taint through assignments using fixpoint iteration.
  * Returns all tainted variables with their taint paths.
  */
-export function propagateTaint(functionNode: any, sources: TaintInfo[], maxDepth: number, language?: AstLanguage): TaintInfo[] {
+export function propagateTaint(functionNode: SyntaxNode, sources: TaintInfo[], maxDepth: number, language?: AstLanguage): TaintInfo[] {
   const tainted = new Map<string, TaintInfo>();
 
   // Seed from sources
@@ -270,7 +271,7 @@ export function propagateTaint(functionNode: any, sources: TaintInfo[], maxDepth
     const args = call.childForFieldName('arguments');
     if (!args) continue;
 
-    let callbackNode: any = null;
+    let callbackNode: SyntaxNode | null = null;
     for (let i = 0; i < args.childCount; i++) {
       const child = args.child(i);
       if (child && child.isNamed) {
@@ -283,7 +284,7 @@ export function propagateTaint(functionNode: any, sources: TaintInfo[], maxDepth
     if (callbackNode.type !== 'arrow_function' && callbackNode.type !== 'function_expression' && callbackNode.type !== 'function') continue;
 
     // Get the first parameter of the callback
-    let firstParam: any = null;
+    let firstParam: SyntaxNode | null = null;
 
     // Arrow function with a single parameter (no parentheses) uses 'parameter' field
     if (callbackNode.type === 'arrow_function') {

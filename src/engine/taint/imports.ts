@@ -3,6 +3,7 @@
  * Collects all imports/requires at the file level across supported languages.
  */
 import type { AstLanguage } from '../../checks/types.js';
+import type { SyntaxNode } from '../ast-helpers.js';
 import { walkTree } from '../ast-helpers.js';
 
 /**
@@ -10,7 +11,7 @@ import { walkTree } from '../ast-helpers.js';
  * Returns a map of localName -> moduleName.
  * Language-aware: handles import statements for JS/TS, Python, Go, Ruby, PHP.
  */
-export function collectImports(rootNode: any, language?: AstLanguage): Map<string, string> {
+export function collectImports(rootNode: SyntaxNode, language?: AstLanguage): Map<string, string> {
   const imports = new Map<string, string>();
 
   walkTree(rootNode, (node) => {

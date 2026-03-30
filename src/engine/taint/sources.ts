@@ -3,6 +3,7 @@
  * Identifies user-input sources in function bodies across supported languages.
  */
 import type { AstLanguage } from '../../checks/types.js';
+import type { SyntaxNode } from '../ast-helpers.js';
 import { walkTree, findNodes, getMemberExpressionText } from '../ast-helpers.js';
 import type { TaintInfo } from './types.js';
 
@@ -11,7 +12,7 @@ import type { TaintInfo } from './types.js';
  * Returns a description string if it is, null otherwise.
  * Language-aware: detects framework-specific request input patterns.
  */
-export function isUserInputSource(node: any, language?: AstLanguage): string | null {
+export function isUserInputSource(node: SyntaxNode | null, language?: AstLanguage): string | null {
   if (!node) return null;
 
   const text = node.text;
@@ -186,7 +187,7 @@ export function isUserInputSource(node: any, language?: AstLanguage): string | n
  * Also handles destructuring from req.body etc.
  * Language-aware: handles different AST structures per language.
  */
-export function detectSources(functionNode: any, language?: AstLanguage): TaintInfo[] {
+export function detectSources(functionNode: SyntaxNode, language?: AstLanguage): TaintInfo[] {
   const sources: TaintInfo[] = [];
   const body = functionNode.childForFieldName('body') ?? functionNode;
 
@@ -341,7 +342,7 @@ export function detectSources(functionNode: any, language?: AstLanguage): TaintI
     const shortVars = findNodes(body, 'short_var_declaration');
     for (const decl of shortVars) {
       // Go short_var_declaration has expression_list children on both sides
-      const children: any[] = [];
+      const children: SyntaxNode[] = [];
       for (let i = 0; i < decl.childCount; i++) {
         const child = decl.child(i);
         if (child && child.isNamed) children.push(child);
@@ -352,8 +353,8 @@ export function detectSources(functionNode: any, language?: AstLanguage): TaintI
         const leftList = children[0];
         const rightList = children[1];
         // For simple single assignment: id := r.FormValue("id")
-        const leftNames: any[] = [];
-        const rightValues: any[] = [];
+        const leftNames: SyntaxNode[] = [];
+        const rightValues: SyntaxNode[] = [];
         for (let i = 0; i < leftList.childCount; i++) {
           const c = leftList.child(i);
           if (c && c.isNamed) leftNames.push(c);
@@ -419,8 +420,8 @@ export function detectSources(functionNode: any, language?: AstLanguage): TaintI
       const right = assign.childForFieldName('right');
       if (!left || !right) continue;
       // Get first identifier from expression_list
-      let nameNode: any = null;
-      let valueNode: any = null;
+      let nameNode: SyntaxNode | null = null;
+      let valueNode: SyntaxNode | null = null;
       for (let i = 0; i < left.childCount; i++) {
         const c = left.child(i);
         if (c && c.isNamed) { nameNode = c; break; }

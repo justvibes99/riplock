@@ -2,6 +2,7 @@
  * Shared types for the taint tracking sub-modules.
  */
 import type { TaintNode, SinkCategory, AstLanguage } from '../../checks/types.js';
+import type { SyntaxNode } from '../ast-helpers.js';
 
 /** Tracks a single tainted variable: where it came from and hops through the code. */
 export interface TaintInfo {
@@ -15,9 +16,9 @@ export interface TaintInfo {
 /** A detected sink hit: a dangerous function/assignment that receives tainted data. */
 export interface SinkHit {
   category: SinkCategory;
-  node: any;          // the call_expression or assignment
-  argNode: any;       // the specific argument that's tainted
-  taintRef: string;   // name of the tainted variable found
+  node: SyntaxNode;      // the call_expression or assignment
+  argNode: SyntaxNode;   // the specific argument that's tainted
+  taintRef: string;      // name of the tainted variable found
   line: number;
   col: number;
 }
@@ -25,15 +26,15 @@ export interface SinkHit {
 /** An assignment extracted from the AST for taint propagation. */
 export interface Assignment {
   name: string;
-  value: any;    // SyntaxNode of the value expression
-  line: number;  // 1-indexed
+  value: SyntaxNode;  // SyntaxNode of the value expression
+  line: number;        // 1-indexed
   col: number;
 }
 
 /** Taint signature for a named function (which params reach which sinks). */
 export interface FunctionTaintSignature {
   name: string;
-  node: any;
+  node: SyntaxNode;
   /** Maps parameter index -> which sink categories that parameter reaches. */
   paramSinks: Map<number, SinkCategory[]>;
 }

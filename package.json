@@ -4,11 +4,12 @@
   "description": "Security scanner with AST taint tracking — we're watching your back so you can let it rip",
   "type": "module",
   "bin": {
-    "riplock": "./dist/index.js"
+    "riplock": "dist/index.js"
   },
   "files": [
     "dist",
-    "dist/rules"
+    "dist/rules",
+    "hooks"
   ],
   "scripts": {
     "build": "tsup",
@@ -36,7 +37,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/justvibes99/riplock"
+    "url": "git+https://github.com/justvibes99/riplock.git"
   },
   "homepage": "https://github.com/justvibes99/riplock",
   "license": "MIT",

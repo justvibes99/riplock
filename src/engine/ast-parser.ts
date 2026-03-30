@@ -1,10 +1,11 @@
 import type { AstLanguage, FileEntry } from '../checks/types.js';
+import type { SyntaxNode } from './ast-helpers.js';
 import { createRequire } from 'node:module';
 import { join, dirname } from 'node:path';
 
 export interface ParsedFile {
-  tree: any;        // web-tree-sitter Tree
-  rootNode: any;    // web-tree-sitter SyntaxNode
+  tree: any;              // web-tree-sitter Tree (WASM object, genuinely untyped)
+  rootNode: SyntaxNode;   // web-tree-sitter SyntaxNode
   language: AstLanguage;
 }
 
@@ -35,12 +36,12 @@ const wasmMap: Record<AstLanguage, { pkg: string; file: string }> = {
   php:        { pkg: 'tree-sitter-php/package.json',        file: 'tree-sitter-php.wasm' },
 };
 
-// Lazy-init state
-let Parser: any = null;
-let LanguageClass: any = null;
+// Lazy-init state — web-tree-sitter WASM objects are dynamically imported and genuinely untyped
+let Parser: any = null;                                    // web-tree-sitter Parser class
+let LanguageClass: any = null;                             // web-tree-sitter Language class
 let initPromise: Promise<void> | null = null;
-const loadedLanguages = new Map<AstLanguage, any>();    // AstLanguage → Language instance
-const parsers = new Map<AstLanguage, any>();             // AstLanguage → Parser instance
+const loadedLanguages = new Map<AstLanguage, any>();       // AstLanguage → WASM Language instance
+const parsers = new Map<AstLanguage, any>();                // AstLanguage → WASM Parser instance
 const treeCache = new Map<string, ParsedFile>();         // absolutePath → ParsedFile
 const MAX_CACHE_SIZE = 500;
 
@@ -86,7 +87,7 @@ async function ensureInit(): Promise<void> {
   await initPromise;
 }
 
-/** Load a language grammar, caching the result. */
+/** Load a language grammar, caching the result. Returns a WASM Language instance (untyped). */
 async function loadLanguage(lang: AstLanguage): Promise<any> {
   const cached = loadedLanguages.get(lang);
   if (cached) return cached;
@@ -101,7 +102,7 @@ async function loadLanguage(lang: AstLanguage): Promise<any> {
   return langInst;
 }
 
-/** Get or create a parser for a given language. */
+/** Get or create a parser for a given language. Returns a WASM Parser instance (untyped). */
 async function getParser(lang: AstLanguage): Promise<any> {
   const cached = parsers.get(lang);
   if (cached) return cached;

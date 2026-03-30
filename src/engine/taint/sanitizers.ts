@@ -3,6 +3,7 @@
  * Checks whether tainted data has been sanitized before reaching a sink.
  */
 import type { SinkCategory } from '../../checks/types.js';
+import type { SyntaxNode } from '../ast-helpers.js';
 import { findNodes } from '../ast-helpers.js';
 import type { TaintInfo } from './types.js';
 
@@ -43,7 +44,7 @@ export function isShellSanitizer(callText: string): boolean {
 }
 
 /** Extract the call_expression from an await_expression. */
-function getCallFromAwait(awaitNode: any): any | null {
+function getCallFromAwait(awaitNode: SyntaxNode): SyntaxNode | null {
   const count: number = awaitNode.childCount;
   for (let i = 0; i < count; i++) {
     const child = awaitNode.child(i);
@@ -59,7 +60,7 @@ function getCallFromAwait(awaitNode: any): any | null {
 export function isSanitized(
   taintInfo: TaintInfo,
   sinkCategory: SinkCategory,
-  functionNode: any,
+  functionNode: SyntaxNode,
 ): boolean {
   // Look at each hop's expression name and find its assignment in the function.
   // If the value is a sanitizer call, the taint is neutralized.

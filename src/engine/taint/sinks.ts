@@ -3,6 +3,7 @@
  * Identifies dangerous function calls and assignments that receive tainted data.
  */
 import type { SinkCategory, AstLanguage } from '../../checks/types.js';
+import type { SyntaxNode } from '../ast-helpers.js';
 import { findNodes, getMemberExpressionText } from '../ast-helpers.js';
 import { containsTaintedRef } from '../ast-helpers.js';
 import type { TaintInfo, SinkHit } from './types.js';
@@ -11,12 +12,12 @@ import type { TaintInfo, SinkHit } from './types.js';
  * Check if a sink call uses parameterized queries (safe pattern).
  * e.g. query('SELECT ... WHERE id = $1', [userInput])
  */
-export function isParameterizedQuery(callNode: any): boolean {
+export function isParameterizedQuery(callNode: SyntaxNode): boolean {
   const args = callNode.childForFieldName('arguments');
   if (!args) return false;
 
   // Needs at least two arguments: a query string and a params array
-  const argChildren: any[] = [];
+  const argChildren: SyntaxNode[] = [];
   const count: number = args.childCount;
   for (let i = 0; i < count; i++) {
     const child = args.child(i);
@@ -46,7 +47,7 @@ export function isParameterizedQuery(callNode: any): boolean {
 
 /** Detect sink patterns and check for tainted arguments. Language-aware. */
 export function detectSinks(
-  functionNode: any,
+  functionNode: SyntaxNode,
   taintedVars: Map<string, TaintInfo>,
   imports: Map<string, string>,
   categories: Set<SinkCategory>,
@@ -63,16 +64,16 @@ export function detectSinks(
   if (language === 'php') callNodeTypes.push('function_call_expression');
 
   // Find all call nodes
-  const calls: any[] = [];
+  const calls: SyntaxNode[] = [];
   for (const t of callNodeTypes) {
     calls.push(...findNodes(body, t));
   }
 
   for (const call of calls) {
     // Extract function/method name and arguments based on language-specific node types.
-    let fn: any = null;
+    let fn: SyntaxNode | null = null;
     let fnText = '';
-    let args: any = null;
+    let args: SyntaxNode | null = null;
 
     if (call.type === 'call_expression') {
       // JS/TS/Go
@@ -183,7 +184,7 @@ export function detectSinks(
 
       if (isSsrf && args) {
         // Check first argument specifically (the URL)
-        let firstArg: any = null;
+        let firstArg: SyntaxNode | null = null;
         for (let i = 0; i < args.childCount; i++) {
           const child = args.child(i);
           if (child && child.isNamed) {
@@ -241,7 +242,7 @@ export function detectSinks(
             moduleName === 'fs/promises' || moduleName === 'node:fs/promises') {
           if (args) {
             // Check first argument (path)
-            let firstArg: any = null;
+            let firstArg: SyntaxNode | null = null;
             for (let i = 0; i < args.childCount; i++) {
               const child = args.child(i);
               if (child && child.isNamed) { firstArg = child; break; }
@@ -270,7 +271,7 @@ export function detectSinks(
         if (moduleName === 'fs' || moduleName === 'node:fs' ||
             moduleName === 'fs/promises' || moduleName === 'node:fs/promises') {
           if (args) {
-            let firstArg: any = null;
+            let firstArg: SyntaxNode | null = null;
             for (let i = 0; i < args.childCount; i++) {
               const child = args.child(i);
               if (child && child.isNamed) { firstArg = child; break; }
@@ -413,7 +414,7 @@ export function detectSinks(
     for (const attr of jsxAttrs) {
       // jsx_attribute has a property_identifier child and a value child
       let propName: string | null = null;
-      let value: any = null;
+      let value: SyntaxNode | null = null;
       const count: number = attr.childCount;
       for (let i = 0; i < count; i++) {
         const child = attr.child(i);
@@ -490,7 +491,7 @@ export function detectSinks(
           /^(requests\.(get|post|put|patch|delete|head|options|request)|urllib\.request\.(urlopen|urlretrieve)|httpx\.(get|post|put|patch|delete|request))$/.test(fnText)) {
         if (args) {
           // First argument is URL
-          let firstArg: any = null;
+          let firstArg: SyntaxNode | null = null;
           for (let i = 0; i < args.childCount; i++) {
             const child = args.child(i);
             if (child && child.isNamed) { firstArg = child; break; }
@@ -535,7 +536,7 @@ export function detectSinks(
       if (categories.has('ssrf') &&
           /^http\.(Get|Post|Head|NewRequest|NewRequestWithContext)$/.test(fnText)) {
         if (args) {
-          let firstArg: any = null;
+          let firstArg: SyntaxNode | null = null;
           for (let i = 0; i < args.childCount; i++) {
             const child = args.child(i);
             if (child && child.isNamed) { firstArg = child; break; }
@@ -597,7 +598,7 @@ export function detectSinks(
   // -- PHP-specific sinks --
   if (language === 'php') {
     for (const call of calls) {
-      let fn: any = call.childForFieldName('function');
+      let fn: SyntaxNode | null = call.childForFieldName('function');
       if (!fn) fn = call.child(0);
       if (!fn) continue;
       const fnText = fn.text;
@@ -635,7 +636,7 @@ export function detectSinks(
       if (categories.has('ssrf') &&
           /^(file_get_contents|curl_exec|curl_setopt|fopen)$/.test(fnText)) {
         if (args) {
-          let firstArg: any = null;
+          let firstArg: SyntaxNode | null = null;
           for (let i = 0; i < args.childCount; i++) {
             const child = args.child(i);
             if (child && child.isNamed) { firstArg = child; break; }

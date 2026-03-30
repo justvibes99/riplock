@@ -16,6 +16,7 @@ import type {
   SinkCategory,
   AstLanguage,
 } from '../../checks/types.js';
+import type { SyntaxNode } from '../ast-helpers.js';
 import { walkTree, findNodes } from '../ast-helpers.js';
 import { containsTaintedRef } from '../ast-helpers.js';
 import { getMemberExpressionText } from '../ast-helpers.js';
@@ -53,8 +54,8 @@ const FUNCTION_TYPES = new Set([
 ]);
 
 /** Find all top-level function scopes in the AST. */
-export function findFunctionScopes(rootNode: any): any[] {
-  const scopes: any[] = [];
+export function findFunctionScopes(rootNode: SyntaxNode): SyntaxNode[] {
+  const scopes: SyntaxNode[] = [];
   walkTree(rootNode, (node) => {
     if (FUNCTION_TYPES.has(node.type)) {
       scopes.push(node);
@@ -69,7 +70,7 @@ export function findFunctionScopes(rootNode: any): any[] {
  * Get the name of a function node, if it has one.
  * Handles function_declaration (name field), variable_declarator parent with arrow_function, etc.
  */
-function getFunctionName(funcNode: any): string | null {
+export function getFunctionName(funcNode: SyntaxNode): string | null {
   // function_declaration: function foo() { ... } (JS/TS/Go/PHP)
   if (funcNode.type === 'function_declaration' || funcNode.type === 'function_definition') {
     const nameNode = funcNode.childForFieldName('name');
@@ -110,7 +111,7 @@ function getFunctionName(funcNode: any): string | null {
  * Get the parameter names of a function node as an ordered list.
  * Language-aware: handles different parameter node types.
  */
-function getFunctionParams(funcNode: any, language?: AstLanguage): string[] {
+export function getFunctionParams(funcNode: SyntaxNode, language?: AstLanguage): string[] {
   const params: string[] = [];
   const paramsNode = funcNode.childForFieldName('parameters');
   if (!paramsNode) return params;
@@ -163,7 +164,7 @@ function getFunctionParams(funcNode: any, language?: AstLanguage): string[] {
  * then check which sinks it can reach.
  */
 export function buildFunctionSignatures(
-  rootNode: any,
+  rootNode: SyntaxNode,
   imports: Map<string, string>,
   categories: Set<SinkCategory>,
   language?: AstLanguage,
@@ -218,7 +219,7 @@ export function buildFunctionSignatures(
  * within the given AST.
  */
 export function findTaintPaths(
-  rootNode: any,
+  rootNode: SyntaxNode,
   language: AstLanguage,
   opts: TaintQueryOpts,
 ): TaintPath[] {
@@ -329,7 +330,7 @@ export function findTaintPaths(
         const args = call.childForFieldName('arguments');
         if (!args) continue;
 
-        const argNodes: any[] = [];
+        const argNodes: SyntaxNode[] = [];
         for (let i = 0; i < args.childCount; i++) {
           const child = args.child(i);
           if (child && child.isNamed) argNodes.push(child);

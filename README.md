@@ -338,6 +338,7 @@ RipLock is a first line of defense, not a guarantee. It catches known vulnerabil
 - **Cross-file taint tracking has depth limits** — call chains beyond 3 import levels are not followed.
 - **Typosquatting is not detected** — telling `lod-ash` from `lodash` requires registry metadata, not code analysis.
 - **Runtime behavior is not analyzed** — memory leaks, race conditions, and timing attacks require dynamic testing.
+- **Calibration is ongoing.** The check thresholds have been tuned against ~20 real-world projects but have not yet been battle-tested across a wide range of production codebases. If you hit false positives, [open an issue](https://github.com/justvibes99/riplock/issues) or suppress individual checks in `.riplock.json`.
 
 Use RipLock alongside — not instead of — dependency auditing (`npm audit`, Dependabot/Renovate), lockfile enforcement, code review, and periodic professional penetration testing.
 

@@ -6,6 +6,7 @@ import type {
   AstLanguage,
 } from '../checks/types.js';
 import type { ParsedFile } from './ast-parser.js';
+import type { SyntaxNode } from './ast-helpers.js';
 import { resolve, dirname, relative } from 'node:path';
 
 // ── Types ──────────────────────────────────────────────────────────────
@@ -17,7 +18,7 @@ export interface CrossFileTaintResult {
 /** What a file exports: function name → AST node */
 interface ExportedFunction {
   name: string;
-  funcNode: any;
+  funcNode: SyntaxNode;
   filePath: string;
 }
 
@@ -38,6 +39,14 @@ interface FunctionTaintSig {
 
 // ── Shared AST helpers ──
 import { walkTree, findNodes, getMemberExpressionText, containsTaintedRef } from './ast-helpers.js';
+
+// ── Taint sub-modules ──
+import { detectSources } from './taint/sources.js';
+import { propagateTaint } from './taint/propagation.js';
+import { detectSinks } from './taint/sinks.js';
+import { collectImports } from './taint/imports.js';
+import { getFunctionName, getFunctionParams } from './taint/index.js';
+import type { TaintInfo } from './taint/types.js';
 
 // ── Module resolution ──────────────────────────────────────────────────
 
@@ -92,47 +101,44 @@ const FUNCTION_TYPES = new Set([
  * Collect all exported function names from a file's AST.
  * Handles: export function, export const, export default, export { ... }, module.exports.
  */
-function collectExports(rootNode: any): Map<string, any> {
-  const exports = new Map<string, any>(); // exportedName → funcNode
+function collectExports(rootNode: SyntaxNode): Map<string, SyntaxNode> {
+  // Intermediate map: values are SyntaxNode (direct function exports) or string
+  // (named references like `export { foo }` that get resolved to nodes at the end)
+  const pending = new Map<string, SyntaxNode | string>();
 
   walkTree(rootNode, (node) => {
     // ES: export function foo() { ... }
     if (node.type === 'export_statement') {
-      // Walk children to find the declaration
       for (let i = 0; i < node.childCount; i++) {
         const child = node.child(i);
         if (!child) continue;
 
-        // export function foo() { ... }
         if (child.type === 'function_declaration') {
           const nameNode = child.childForFieldName('name');
-          if (nameNode) exports.set(nameNode.text, child);
+          if (nameNode) pending.set(nameNode.text, child);
         }
 
-        // export const foo = (...) => { ... }
         if (child.type === 'lexical_declaration' || child.type === 'variable_declaration') {
           const declarators = findNodes(child, 'variable_declarator');
           for (const decl of declarators) {
             const nameNode = decl.childForFieldName('name');
             const valueNode = decl.childForFieldName('value') ?? decl.childForFieldName('init');
             if (nameNode && valueNode && FUNCTION_TYPES.has(valueNode.type)) {
-              exports.set(nameNode.text, valueNode);
+              pending.set(nameNode.text, valueNode);
             }
           }
         }
 
-        // export default function() { ... } or export default (...) => { ... }
         if (child.type === 'function_declaration' || child.type === 'function' || FUNCTION_TYPES.has(child.type)) {
-          // Already handled above for named ones; handle default
-          if (!exports.has('default') && node.text.includes('default')) {
+          if (!pending.has('default') && node.text.includes('default')) {
             const nameNode = child.childForFieldName('name');
             const name = nameNode ? nameNode.text : 'default';
-            exports.set(name, child);
-            if (name !== 'default') exports.set('default', child);
+            pending.set(name, child);
+            if (name !== 'default') pending.set('default', child);
           }
         }
 
-        // export { foo, bar } — these reference names already in the file
+        // export { foo, bar } — store name strings, resolved to nodes below
         if (child.type === 'export_clause') {
           walkTree(child, (spec) => {
             if (spec.type === 'export_specifier') {
@@ -141,9 +147,7 @@ function collectExports(rootNode: any): Map<string, any> {
               const localName = nameField?.text;
               const exportedName = aliasField ? aliasField.text : localName;
               if (localName && exportedName) {
-                // We need to find the actual function node for this name
-                // Just store the name for now; we'll resolve the function node below
-                exports.set(exportedName, localName);
+                pending.set(exportedName, localName);
               }
             }
           });
@@ -159,30 +163,28 @@ function collectExports(rootNode: any): Map<string, any> {
 
       const leftText = getMemberExpressionText(left);
 
-      // module.exports.foo = function(...) { ... }
       if (leftText.startsWith('module.exports.') || leftText.startsWith('exports.')) {
         const exportName = leftText.startsWith('module.exports.')
           ? leftText.slice('module.exports.'.length)
           : leftText.slice('exports.'.length);
         if (FUNCTION_TYPES.has(right.type)) {
-          exports.set(exportName, right);
+          pending.set(exportName, right);
         }
       }
 
-      // module.exports = { foo, bar }
       if (leftText === 'module.exports' && right.type === 'object') {
         walkTree(right, (child) => {
           if (child.type === 'shorthand_property') {
             const ident = child.childCount > 0 ? child.child(0) : null;
             if (ident && ident.type === 'identifier') {
-              exports.set(ident.text, ident.text); // placeholder, resolve later
+              pending.set(ident.text, ident.text);
             }
           }
           if (child.type === 'pair') {
             const key = child.childForFieldName('key');
             const val = child.childForFieldName('value');
             if (key && val && FUNCTION_TYPES.has(val.type)) {
-              exports.set(key.text, val);
+              pending.set(key.text, val);
             }
           }
         });
@@ -191,7 +193,7 @@ function collectExports(rootNode: any): Map<string, any> {
   });
 
   // Resolve string references to actual function nodes
-  const allFunctions = new Map<string, any>();
+  const allFunctions = new Map<string, SyntaxNode>();
   walkTree(rootNode, (node) => {
     if (FUNCTION_TYPES.has(node.type)) {
       const name = getFunctionName(node);
@@ -199,18 +201,17 @@ function collectExports(rootNode: any): Map<string, any> {
     }
   });
 
-  for (const [exportName, value] of exports) {
+  const resolved = new Map<string, SyntaxNode>();
+  for (const [exportName, value] of pending) {
     if (typeof value === 'string') {
       const funcNode = allFunctions.get(value);
-      if (funcNode) {
-        exports.set(exportName, funcNode);
-      } else {
-        exports.delete(exportName);
-      }
+      if (funcNode) resolved.set(exportName, funcNode);
+    } else {
+      resolved.set(exportName, value);
     }
   }
 
-  return exports;
+  return resolved;
 }
 
 // ── Import collection (for cross-file resolution) ──────────────────────
@@ -220,7 +221,7 @@ function collectExports(rootNode: any): Map<string, any> {
  * Returns a list of ProjectImport objects for project-local imports only.
  */
 function collectProjectImports(
-  rootNode: any,
+  rootNode: SyntaxNode,
   importerPath: string,
   fileSet: ReadonlySet<string>,
 ): ProjectImport[] {
@@ -346,7 +347,7 @@ function collectProjectImports(
  * Detect re-exports: export { foo } from './other'
  * Returns list of { exportedName, sourceSpecifier, sourceName } tuples.
  */
-function collectReExports(rootNode: any): Array<{
+function collectReExports(rootNode: SyntaxNode): Array<{
   exportedName: string;
   sourceSpecifier: string;
   sourceName: string;
@@ -385,464 +386,16 @@ function collectReExports(rootNode: any): Array<{
   return reExports;
 }
 
-// ── Function name/param helpers ────────────────────────────────────────
-
-function getFunctionName(funcNode: any): string | null {
-  if (funcNode.type === 'function_declaration' || funcNode.type === 'function_definition') {
-    const nameNode = funcNode.childForFieldName('name');
-    if (nameNode) return nameNode.text;
-  }
-  if (funcNode.type === 'method_definition') {
-    const nameNode = funcNode.childForFieldName('name');
-    if (nameNode) return nameNode.text;
-  }
-  if (funcNode.parent?.type === 'variable_declarator') {
-    const nameNode = funcNode.parent.childForFieldName('name');
-    if (nameNode && nameNode.type === 'identifier') return nameNode.text;
-  }
-  return null;
-}
-
-function getFunctionParams(funcNode: any): string[] {
-  const params: string[] = [];
-  const paramsNode = funcNode.childForFieldName('parameters');
-  if (!paramsNode) return params;
-  for (let i = 0; i < paramsNode.childCount; i++) {
-    const child = paramsNode.child(i);
-    if (child && child.isNamed && child.type === 'identifier') {
-      params.push(child.text);
-    }
-    if (child && child.isNamed && child.type === 'required_parameter') {
-      const pattern = child.childForFieldName('pattern');
-      if (pattern && pattern.type === 'identifier') {
-        params.push(pattern.text);
-      }
-    }
-  }
-  return params;
-}
-
-// ── Taint propagation (simplified from taint-tracker.ts) ───────────────
-
-interface TaintInfo {
-  varName: string;
-  sourceExpr: string;
-  sourceLine: number;
-  sourceCol: number;
-  hops: TaintNode[];
-}
-
-function isUserInputSource(node: any): string | null {
-  if (!node) return null;
-  const text = node.text;
-
-  if (node.type === 'member_expression') {
-    const fullText = getMemberExpressionText(node);
-    if (/^req\.(body|params|query|headers|cookies)(\.|\[|$)/.test(fullText) ||
-        /^request\.(body|params|query|headers|cookies)(\.|\[|$)/.test(fullText) ||
-        /^ctx\.(request\.body|params|query)(\.|\[)?/.test(fullText)) {
-      return fullText;
-    }
-  }
-
-  if (node.type === 'call_expression') {
-    const fn = node.childForFieldName('function');
-    if (fn) {
-      const fnText = getMemberExpressionText(fn);
-      if (/^(formData|searchParams|urlSearchParams)\.get$/.test(fnText) ||
-          /^req\.(json|text|formData|blob|arrayBuffer)$/.test(fnText) ||
-          /^request\.(json|text|formData|blob|arrayBuffer)$/.test(fnText)) {
-        return text;
-      }
-    }
-  }
-
-  if (node.type === 'await_expression') {
-    const inner = node.childCount > 0 ? node.child(node.childCount - 1) : null;
-    if (inner) return isUserInputSource(inner);
-  }
-
-  return null;
-}
-
-function detectSources(functionNode: any): TaintInfo[] {
-  const sources: TaintInfo[] = [];
-  const body = functionNode.childForFieldName('body') ?? functionNode;
-  const declarators = findNodes(body, 'variable_declarator');
-
-  for (const decl of declarators) {
-    const nameNode = decl.childForFieldName('name');
-    const valueNode = decl.childForFieldName('value') ?? decl.childForFieldName('init');
-    if (!nameNode || !valueNode) continue;
-
-    if (nameNode.type === 'identifier') {
-      const sourceExpr = isUserInputSource(valueNode);
-      if (sourceExpr) {
-        sources.push({
-          varName: nameNode.text,
-          sourceExpr,
-          sourceLine: nameNode.startPosition.row + 1,
-          sourceCol: nameNode.startPosition.column,
-          hops: [{ expression: sourceExpr, line: valueNode.startPosition.row + 1, column: valueNode.startPosition.column }],
-        });
-      }
-    }
-
-    if (nameNode.type === 'object_pattern') {
-      const sourceExpr = isUserInputSource(valueNode);
-      if (sourceExpr) {
-        walkTree(nameNode, (child) => {
-          if (child.type === 'shorthand_property_identifier_pattern' ||
-              (child.type === 'identifier' && child.parent?.type === 'pair_pattern')) {
-            sources.push({
-              varName: child.text,
-              sourceExpr: sourceExpr + '.' + child.text,
-              sourceLine: child.startPosition.row + 1,
-              sourceCol: child.startPosition.column,
-              hops: [{ expression: sourceExpr + '.' + child.text, line: child.startPosition.row + 1, column: child.startPosition.column }],
-            });
-          }
-        });
-      }
-    }
-  }
-
-  // Assignment expressions
-  const assignExprs = findNodes(body, 'assignment_expression');
-  for (const assign of assignExprs) {
-    const left = assign.childForFieldName('left');
-    const right = assign.childForFieldName('right');
-    if (!left || !right) continue;
-
-    if (left.type === 'identifier') {
-      const sourceExpr = isUserInputSource(right);
-      if (sourceExpr) {
-        sources.push({
-          varName: left.text,
-          sourceExpr,
-          sourceLine: left.startPosition.row + 1,
-          sourceCol: left.startPosition.column,
-          hops: [{ expression: sourceExpr, line: right.startPosition.row + 1, column: right.startPosition.column }],
-        });
-      }
-    }
-
-    if (left.type === 'member_expression') {
-      const sourceExpr = isUserInputSource(right);
-      if (sourceExpr) {
-        const fullName = getMemberExpressionText(left);
-        sources.push({
-          varName: fullName,
-          sourceExpr,
-          sourceLine: left.startPosition.row + 1,
-          sourceCol: left.startPosition.column,
-          hops: [{ expression: sourceExpr, line: right.startPosition.row + 1, column: right.startPosition.column }],
-        });
-      }
-    }
-  }
-
-  return sources;
-}
-
-function findAssignments(node: any): Array<{ name: string; value: any; line: number; col: number }> {
-  const result: Array<{ name: string; value: any; line: number; col: number }> = [];
-
-  const declarators = findNodes(node, 'variable_declarator');
-  for (const decl of declarators) {
-    const nameNode = decl.childForFieldName('name');
-    const valueNode = decl.childForFieldName('value') ?? decl.childForFieldName('init');
-    if (nameNode && nameNode.type === 'identifier' && valueNode) {
-      result.push({ name: nameNode.text, value: valueNode, line: nameNode.startPosition.row + 1, col: nameNode.startPosition.column });
-    }
-  }
-
-  const assignments = findNodes(node, 'assignment_expression');
-  for (const assign of assignments) {
-    const left = assign.childForFieldName('left');
-    const right = assign.childForFieldName('right');
-    if (left && left.type === 'identifier' && right) {
-      result.push({ name: left.text, value: right, line: left.startPosition.row + 1, col: left.startPosition.column });
-    } else if (left && left.type === 'member_expression' && right) {
-      const fullName = getMemberExpressionText(left);
-      result.push({ name: fullName, value: right, line: left.startPosition.row + 1, col: left.startPosition.column });
-    }
-  }
-
-  return result;
-}
-
-function propagateTaint(functionNode: any, sources: TaintInfo[], maxDepth: number): TaintInfo[] {
-  const tainted = new Map<string, TaintInfo>();
-  for (const src of sources) {
-    tainted.set(src.varName, src);
-  }
-
-  const body = functionNode.childForFieldName('body') ?? functionNode;
-  const assignments = findAssignments(body);
-
-  let changed = true;
-  let iterations = 0;
-  while (changed && iterations < maxDepth) {
-    changed = false;
-    iterations++;
-    for (const { name, value, line, col } of assignments) {
-      if (tainted.has(name)) continue;
-      const taintRef = containsTaintedRef(value, new Set(tainted.keys()));
-      if (taintRef) {
-        const upstream = tainted.get(taintRef)!;
-        tainted.set(name, {
-          varName: name,
-          sourceExpr: upstream.sourceExpr,
-          sourceLine: upstream.sourceLine,
-          sourceCol: upstream.sourceCol,
-          hops: [...upstream.hops, { expression: name, line, column: col }],
-        });
-        changed = true;
-      }
-    }
-  }
-
-  return [...tainted.values()];
-}
-
-// ── Sink detection (imports-aware) ─────────────────────────────────────
-
-function isParameterizedQuery(callNode: any): boolean {
-  const args = callNode.childForFieldName('arguments');
-  if (!args) return false;
-  const argChildren: any[] = [];
-  for (let i = 0; i < args.childCount; i++) {
-    const child = args.child(i);
-    if (child && child.isNamed) argChildren.push(child);
-  }
-  if (argChildren.length < 2) return false;
-  const queryText = argChildren[0].text;
-  const hasPlaceholders = /(\$\d+|\?|:\w+)/.test(queryText);
-  const isArray = argChildren[1].type === 'array';
-  return hasPlaceholders && isArray;
-}
-
-function collectFileImports(rootNode: any): Map<string, string> {
-  const imports = new Map<string, string>();
-  walkTree(rootNode, (node) => {
-    if (node.type === 'import_statement') {
-      const source = node.childForFieldName('source');
-      if (!source) return;
-      const moduleName = source.text.replace(/['"]/g, '');
-      walkTree(node, (child) => {
-        if (child.type === 'identifier' && child.parent?.type === 'import_clause') {
-          imports.set(child.text, moduleName);
-        }
-        if (child.type === 'import_specifier') {
-          const name = child.childForFieldName('name');
-          const alias = child.childForFieldName('alias');
-          const localName = alias ? alias.text : name?.text;
-          if (localName) imports.set(localName, moduleName);
-        }
-        if (child.type === 'namespace_import') {
-          const nameNode = child.childForFieldName('name');
-          if (nameNode) imports.set(nameNode.text, moduleName);
-        }
-      });
-    }
-    if (node.type === 'variable_declarator') {
-      const init = node.childForFieldName('value') ?? node.childForFieldName('init');
-      if (!init || init.type !== 'call_expression') return;
-      const fn = init.childForFieldName('function');
-      if (!fn || fn.text !== 'require') return;
-      const args = init.childForFieldName('arguments');
-      if (!args) return;
-      let requireModule: string | null = null;
-      for (let i = 0; i < args.childCount; i++) {
-        const arg = args.child(i);
-        if (arg && arg.isNamed) { requireModule = arg.text.replace(/['"]/g, ''); break; }
-      }
-      if (!requireModule) return;
-      const nameNode = node.childForFieldName('name');
-      if (!nameNode) return;
-      if (nameNode.type === 'identifier') {
-        imports.set(nameNode.text, requireModule);
-      } else if (nameNode.type === 'object_pattern') {
-        walkTree(nameNode, (child) => {
-          if (child.type === 'shorthand_property_identifier_pattern') {
-            imports.set(child.text, requireModule!);
-          } else if (child.type === 'pair_pattern') {
-            const val = child.childForFieldName('value');
-            const key = child.childForFieldName('key');
-            if (val?.type === 'identifier') imports.set(val.text, requireModule!);
-            else if (key?.type === 'identifier') imports.set(key.text, requireModule!);
-          }
-        });
-      }
-    }
-  });
-  return imports;
-}
-
-interface SinkHit {
-  category: SinkCategory;
-  node: any;
-  argNode: any;
-  taintRef: string;
-  line: number;
-  col: number;
-}
-
-function detectSinks(
-  functionNode: any,
-  taintedVars: Map<string, TaintInfo>,
-  imports: Map<string, string>,
-  categories: Set<SinkCategory>,
-): SinkHit[] {
-  const hits: SinkHit[] = [];
-  const body = functionNode.childForFieldName('body') ?? functionNode;
-  const taintedNames = new Set(taintedVars.keys());
-  const calls = findNodes(body, 'call_expression');
-
-  for (const call of calls) {
-    const fn = call.childForFieldName('function');
-    if (!fn) continue;
-    const fnText = getMemberExpressionText(fn);
-    const args = call.childForFieldName('arguments');
-
-    if (categories.has('sql-query') &&
-        /\.(query|exec|execute|raw|whereRaw|orderByRaw|havingRaw|joinRaw|literal|\$queryRawUnsafe|\$executeRawUnsafe|prepare)$/.test(fnText)) {
-      if (isParameterizedQuery(call)) continue;
-      if (args) {
-        const ref = containsTaintedRef(args, taintedNames);
-        if (ref) hits.push({ category: 'sql-query', node: call, argNode: args, taintRef: ref, line: call.startPosition.row + 1, col: call.startPosition.column });
-      }
-    }
-
-    if (categories.has('shell-exec') &&
-        /^(exec|execSync|execFile|execFileSync|spawn|spawnSync)$/.test(fnText)) {
-      const moduleName = imports.get(fnText);
-      if (moduleName === 'child_process' || moduleName === 'node:child_process') {
-        if (args) {
-          const ref = containsTaintedRef(args, taintedNames);
-          if (ref) hits.push({ category: 'shell-exec', node: call, argNode: args, taintRef: ref, line: call.startPosition.row + 1, col: call.startPosition.column });
-        }
-      }
-    }
-
-    if (categories.has('shell-exec') &&
-        /^(child_process|cp)\.(exec|execSync|execFile|execFileSync|spawn|spawnSync)$/.test(fnText)) {
-      const objName = fnText.split('.')[0];
-      const moduleName = imports.get(objName);
-      if (moduleName === 'child_process' || moduleName === 'node:child_process') {
-        if (args) {
-          const ref = containsTaintedRef(args, taintedNames);
-          if (ref) hits.push({ category: 'shell-exec', node: call, argNode: args, taintRef: ref, line: call.startPosition.row + 1, col: call.startPosition.column });
-        }
-      }
-    }
-
-    if (categories.has('ssrf')) {
-      const isSsrf = fnText === 'fetch' ||
-        /^(axios|got|http|https)\.(get|post|put|patch|delete|request)$/.test(fnText) ||
-        fnText === 'got' || fnText === 'axios';
-      if (isSsrf && args) {
-        let firstArg: any = null;
-        for (let i = 0; i < args.childCount; i++) {
-          const child = args.child(i);
-          if (child && child.isNamed) { firstArg = child; break; }
-        }
-        if (firstArg) {
-          const ref = containsTaintedRef(firstArg, taintedNames);
-          if (ref) hits.push({ category: 'ssrf', node: call, argNode: firstArg, taintRef: ref, line: call.startPosition.row + 1, col: call.startPosition.column });
-        }
-      }
-    }
-
-    if (categories.has('xss') && (fnText === 'document.write' || fnText === 'document.writeln')) {
-      if (args) {
-        const ref = containsTaintedRef(args, taintedNames);
-        if (ref) hits.push({ category: 'xss', node: call, argNode: args, taintRef: ref, line: call.startPosition.row + 1, col: call.startPosition.column });
-      }
-    }
-
-    if (categories.has('path-traversal')) {
-      const fsOps = new Set(['readFile', 'readFileSync', 'writeFile', 'writeFileSync', 'createReadStream', 'createWriteStream', 'readdir', 'readdirSync', 'stat', 'statSync', 'access', 'accessSync', 'unlink', 'unlinkSync']);
-      if (fsOps.has(fnText)) {
-        const moduleName = imports.get(fnText);
-        if (moduleName === 'fs' || moduleName === 'node:fs' || moduleName === 'fs/promises' || moduleName === 'node:fs/promises') {
-          if (args) {
-            let firstArg: any = null;
-            for (let i = 0; i < args.childCount; i++) {
-              const child = args.child(i);
-              if (child && child.isNamed) { firstArg = child; break; }
-            }
-            if (firstArg) {
-              const ref = containsTaintedRef(firstArg, taintedNames);
-              if (ref) hits.push({ category: 'path-traversal', node: call, argNode: firstArg, taintRef: ref, line: call.startPosition.row + 1, col: call.startPosition.column });
-            }
-          }
-        }
-      }
-      const parts = fnText.split('.');
-      if (parts.length === 2 && fsOps.has(parts[1])) {
-        const moduleName = imports.get(parts[0]);
-        if (moduleName === 'fs' || moduleName === 'node:fs' || moduleName === 'fs/promises' || moduleName === 'node:fs/promises') {
-          if (args) {
-            let firstArg: any = null;
-            for (let i = 0; i < args.childCount; i++) {
-              const child = args.child(i);
-              if (child && child.isNamed) { firstArg = child; break; }
-            }
-            if (firstArg) {
-              const ref = containsTaintedRef(firstArg, taintedNames);
-              if (ref) hits.push({ category: 'path-traversal', node: call, argNode: firstArg, taintRef: ref, line: call.startPosition.row + 1, col: call.startPosition.column });
-            }
-          }
-        }
-      }
-    }
-
-    if (categories.has('redirect') && /^res\.redirect$/.test(fnText)) {
-      if (args) {
-        const ref = containsTaintedRef(args, taintedNames);
-        if (ref) hits.push({ category: 'redirect', node: call, argNode: args, taintRef: ref, line: call.startPosition.row + 1, col: call.startPosition.column });
-      }
-    }
-
-    if (categories.has('eval') && fnText === 'eval') {
-      if (args) {
-        const ref = containsTaintedRef(args, taintedNames);
-        if (ref) hits.push({ category: 'eval', node: call, argNode: args, taintRef: ref, line: call.startPosition.row + 1, col: call.startPosition.column });
-      }
-    }
-  }
-
-  // XSS: .innerHTML assignment
-  if (categories.has('xss')) {
-    const assignExprs = findNodes(body, 'assignment_expression');
-    for (const assign of assignExprs) {
-      const left = assign.childForFieldName('left');
-      const right = assign.childForFieldName('right');
-      if (left && right && left.type === 'member_expression') {
-        const prop = left.childForFieldName('property');
-        if (prop && prop.text === 'innerHTML') {
-          const ref = containsTaintedRef(right, taintedNames);
-          if (ref) hits.push({ category: 'xss', node: assign, argNode: right, taintRef: ref, line: assign.startPosition.row + 1, col: assign.startPosition.column });
-        }
-      }
-    }
-  }
-
-  return hits;
-}
-
 // ── Build taint signatures for exported functions ──────────────────────
 
 function buildExportedFunctionSignatures(
-  exportedFunctions: Map<string, any>,
-  rootNode: any,
+  exportedFunctions: Map<string, SyntaxNode>,
+  rootNode: SyntaxNode,
   categories: Set<SinkCategory>,
   sourceFilePath = '',
 ): Map<string, FunctionTaintSig> {
   const signatures = new Map<string, FunctionTaintSig>();
-  const imports = collectFileImports(rootNode);
+  const imports = collectImports(rootNode);
 
   for (const [exportName, funcNode] of exportedFunctions) {
     if (!funcNode || typeof funcNode !== 'object') continue;
@@ -904,7 +457,7 @@ export async function findCrossFileTaintPaths(
 
   // Phase 1: Parse all files and collect exports + project imports
   const parsedFiles = new Map<string, ParsedFile>();
-  const fileExports = new Map<string, Map<string, any>>(); // filePath → exportName → funcNode
+  const fileExports = new Map<string, Map<string, SyntaxNode>>(); // filePath → exportName → funcNode
   const fileProjectImports = new Map<string, ProjectImport[]>();
   const fileReExports = new Map<string, Array<{ exportedName: string; sourceSpecifier: string; sourceName: string }>>();
 
@@ -934,7 +487,7 @@ export async function findCrossFileTaintPaths(
     filePath: string,
     exportName: string,
     visited: Set<string>,
-  ): { funcNode: any; filePath: string } | null {
+  ): { funcNode: SyntaxNode; filePath: string } | null {
     const visitKey = `${filePath}::${exportName}`;
     if (visited.has(visitKey)) return null; // cycle
     visited.add(visitKey);
@@ -1055,7 +608,7 @@ export async function findCrossFileTaintPaths(
             const args = call.childForFieldName('arguments');
             if (!args) continue;
 
-            const argNodes: any[] = [];
+            const argNodes: SyntaxNode[] = [];
             for (let i = 0; i < args.childCount; i++) {
               const child = args.child(i);
               if (child && child.isNamed) argNodes.push(child);
@@ -1107,7 +660,7 @@ export async function findCrossFileTaintPaths(
     if (!parsed) continue;
 
     // Find all function scopes in the importing file
-    const functionScopes: any[] = [];
+    const functionScopes: SyntaxNode[] = [];
     walkTree(parsed.rootNode, (node) => {
       if (FUNCTION_TYPES.has(node.type)) functionScopes.push(node);
     });
@@ -1186,7 +739,7 @@ export async function findCrossFileTaintPaths(
         const args = call.childForFieldName('arguments');
         if (!args) continue;
 
-        const argNodes: any[] = [];
+        const argNodes: SyntaxNode[] = [];
         for (let i = 0; i < args.childCount; i++) {
           const child = args.child(i);
           if (child && child.isNamed) argNodes.push(child);
