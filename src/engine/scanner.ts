@@ -22,6 +22,14 @@ export async function scan(projectRoot: string, config: ResolvedConfig): Promise
   const start = performance.now();
   const root = resolve(projectRoot);
 
+  // Enforce scan timeout
+  const timeoutMs = config.timeoutMs;
+  const checkTimeout = () => {
+    if (performance.now() - start > timeoutMs) {
+      throw new Error(`Scan timed out after ${(timeoutMs / 1000).toFixed(0)}s`);
+    }
+  };
+
   // Discover files
   const files = await discoverFiles(root, config);
   const filesByExtension = groupByExtension(files);
@@ -74,8 +82,12 @@ export async function scan(projectRoot: string, config: ResolvedConfig): Promise
   const ruleChecks = await loadRules(root);
   const allChecksWithRules = [...allChecks, ...ruleChecks];
 
+  checkTimeout();
+
   // Run all checks
   const findings = await runChecks(allChecksWithRules, ctx);
+
+  checkTimeout();
 
   // Sort by severity
   const severityOrder = { critical: 0, high: 1, medium: 2, low: 3 };

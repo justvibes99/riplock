@@ -1,3 +1,12 @@
+/**
+ * Intra-function taint tracking engine.
+ *
+ * TODO: This file is ~2300 lines. Split into sub-modules:
+ * - taint-sources.ts (source detection per language)
+ * - taint-sinks.ts (sink detection per language)
+ * - taint-propagation.ts (forward propagation + sanitizer checking)
+ * - taint-imports.ts (import collection)
+ */
 import type {
   TaintPath,
   TaintNode,

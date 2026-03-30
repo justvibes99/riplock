@@ -37,15 +37,7 @@ function taintFinding(
   };
 }
 
-/** Walk all descendants of a tree-sitter node. */
-function walkTree(node: any, callback: (n: any) => void): void {
-  callback(node);
-  const count: number = node.childCount;
-  for (let i = 0; i < count; i++) {
-    const child = node.child(i);
-    if (child) walkTree(child, callback);
-  }
-}
+import { walkTree } from '../../engine/ast-helpers.js';
 
 // ── AST-INJ001: SQL Injection (Taint-Tracked) ─────────────────────────
 

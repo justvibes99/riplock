@@ -194,8 +194,10 @@ async function runAstChecks(
       for (const check of applicable) {
         try {
           fileFindings.push(...check.analyze(astCtx));
-        } catch {
-          // Silently skip checks that throw (e.g. malformed AST)
+        } catch (err) {
+          if (ctx.config.verbose) {
+            process.stderr.write(`[riplock] AST check ${check.id} failed on ${file.relativePath}: ${err instanceof Error ? err.message : err}\n`);
+          }
         }
       }
       return fileFindings;
@@ -255,7 +257,15 @@ async function runAstChecks(
         severity: info.severity,
         category: 'injection',
         location: {
-          filePath: '',  // Will be set from the source's context
+          // Extract file path from cross-file intermediate (format: "cross-file: fn() in path/to/file.ts")
+          filePath: (() => {
+            const crossFileNode = path.intermediates.find(n => n.expression.startsWith('cross-file:'));
+            if (crossFileNode) {
+              const match = crossFileNode.expression.match(/in\s+(\S+)/);
+              if (match) return match[1];
+            }
+            return 'unknown';
+          })(),
           startLine: path.sink.line,
           startColumn: path.sink.column,
         },
@@ -268,8 +278,10 @@ async function runAstChecks(
         confidence: 'high',
       });
     }
-  } catch {
-    // Cross-file taint analysis is best-effort; don't fail the scan
+  } catch (err) {
+    if (ctx.config.verbose) {
+      process.stderr.write(`[riplock] Cross-file taint analysis failed: ${err instanceof Error ? err.message : err}\n`);
+    }
   }
 
   return findings;

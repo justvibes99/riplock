@@ -4,7 +4,6 @@ import type { ResolvedConfig, Severity } from '../checks/types.js';
 import { defaultConfig, severityFromString } from './defaults.js';
 
 interface RiplockConfigFile {
-  ignore?: string[];
   severity?: string;
   disable?: string[];
   skipDeps?: boolean;
