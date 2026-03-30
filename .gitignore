@@ -2,3 +2,15 @@ node_modules/
 dist/
 *.tsbuildinfo
 .DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+.env
+.env.*
+!.env.example
+coverage/
+.nyc_output/
+*.log
+.idea/
+.vscode/

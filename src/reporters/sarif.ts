@@ -63,7 +63,7 @@ const SEVERITY_TO_SARIF_LEVEL: Record<Severity, string> = {
 };
 
 export function renderSarif(result: ScanResult, version = '2.0.0'): string {
-  // Build rule definitions from all registered checks
+  // Build rule definitions from all registered checks + rule-engine findings
   const usedCheckIds = new Set(result.findings.map((f) => f.checkId));
   const rules: SarifRule[] = allChecks
     .filter((c) => usedCheckIds.has(c.id))
@@ -74,6 +74,21 @@ export function renderSarif(result: ScanResult, version = '2.0.0'): string {
       fullDescription: { text: c.description },
       defaultConfiguration: { level: SEVERITY_TO_SARIF_LEVEL[c.defaultSeverity] },
     }));
+
+  // Add rule definitions for rule-engine findings (RULE-*) not in allChecks
+  const knownRuleIds = new Set(rules.map((r) => r.id));
+  for (const f of result.findings) {
+    if (!knownRuleIds.has(f.checkId)) {
+      rules.push({
+        id: f.checkId,
+        name: f.title,
+        shortDescription: { text: f.title },
+        fullDescription: { text: f.message },
+        defaultConfiguration: { level: SEVERITY_TO_SARIF_LEVEL[f.severity] },
+      });
+      knownRuleIds.add(f.checkId);
+    }
+  }
 
   // Build results from findings
   const results: SarifResult[] = result.findings.map((f) => ({

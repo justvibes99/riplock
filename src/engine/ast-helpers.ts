@@ -1,11 +1,10 @@
 /**
  * Shared tree-sitter AST traversal helpers.
- * Used by taint-tracker.ts, cross-file-taint.ts, and ast-pattern.ts.
+ * Used by taint-tracker.ts, cross-file-taint.ts, ast/index.ts, and ast-pattern.ts.
  *
- * Note: tree-sitter SyntaxNode types are untyped (any) because web-tree-sitter
- * and ast-grep use different node APIs. A shared SyntaxNode interface would
- * require runtime abstraction overhead. The `any` here is intentional —
- * these helpers accept both web-tree-sitter and ast-grep nodes.
+ * Note: tree-sitter SyntaxNode is typed as `any` because web-tree-sitter
+ * and ast-grep expose different node APIs. A shared typed interface would
+ * require runtime abstraction overhead.
  */
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -39,26 +38,43 @@ export function findNodesByTypes(node: SyntaxNode, types: Set<string>): SyntaxNo
   return result;
 }
 
+/** Node types that represent member/attribute access across languages. */
+export const MEMBER_EXPRESSION_TYPES = new Set([
+  'member_expression',        // JS/TS
+  'selector_expression',      // Go
+  'attribute',                // Python
+  'member_access_expression', // PHP
+]);
+
 /**
  * Get the full dotted text of a member expression (e.g., "req.body.id").
  * Handles JS/TS member_expression, Go selector_expression, Python attribute,
  * and PHP member_access_expression.
  */
 export function getMemberExpressionText(node: SyntaxNode): string {
-  if (
-    node.type === 'member_expression' ||
-    node.type === 'selector_expression' ||
-    node.type === 'attribute' ||
-    node.type === 'member_access_expression'
-  ) {
+  // JS/TS
+  if (node.type === 'member_expression') {
     const obj = node.childForFieldName('object');
-    const prop =
-      node.childForFieldName('property') ??
-      node.childForFieldName('field') ??
-      node.childForFieldName('attribute');
-    if (obj && prop) {
-      return getMemberExpressionText(obj) + '.' + prop.text;
-    }
+    const prop = node.childForFieldName('property');
+    if (obj && prop) return getMemberExpressionText(obj) + '.' + prop.text;
+  }
+  // Go
+  if (node.type === 'selector_expression') {
+    const operand = node.childForFieldName('operand');
+    const field = node.childForFieldName('field');
+    if (operand && field) return getMemberExpressionText(operand) + '.' + field.text;
+  }
+  // Python
+  if (node.type === 'attribute') {
+    const obj = node.childForFieldName('object');
+    const attr = node.childForFieldName('attribute');
+    if (obj && attr) return getMemberExpressionText(obj) + '.' + attr.text;
+  }
+  // PHP
+  if (node.type === 'member_access_expression') {
+    const obj = node.childForFieldName('object');
+    const name = node.childForFieldName('name');
+    if (obj && name) return getMemberExpressionText(obj) + '.' + name.text;
   }
   return node.text;
 }

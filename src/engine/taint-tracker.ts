@@ -14,56 +14,9 @@ import type {
   SinkCategory,
   AstLanguage,
 } from '../checks/types.js';
-import { walkTree, findNodes, findNodesByTypes } from './ast-helpers.js';
+import { walkTree, findNodes, findNodesByTypes, getMemberExpressionText, MEMBER_EXPRESSION_TYPES } from './ast-helpers.js';
 
-/** Node types that represent member/attribute access across languages. */
-const MEMBER_EXPRESSION_TYPES = new Set([
-  'member_expression',      // JS/TS
-  'selector_expression',    // Go
-  'attribute',              // Python
-  'member_access_expression', // PHP
-]);
-
-/**
- * Get the full dotted text of a member expression (e.g. "req.body.id").
- * Handles language-specific member access node types.
- * For non-member-expression nodes, returns `node.text`.
- */
-function getMemberExpressionText(node: any): string {
-  // JS/TS: member_expression with object + property fields
-  if (node.type === 'member_expression') {
-    const obj = node.childForFieldName('object');
-    const prop = node.childForFieldName('property');
-    if (obj && prop) {
-      return getMemberExpressionText(obj) + '.' + prop.text;
-    }
-  }
-  // Go: selector_expression with operand + field (field_identifier)
-  if (node.type === 'selector_expression') {
-    const operand = node.childForFieldName('operand');
-    const field = node.childForFieldName('field');
-    if (operand && field) {
-      return getMemberExpressionText(operand) + '.' + field.text;
-    }
-  }
-  // Python: attribute node with object + attribute fields
-  if (node.type === 'attribute') {
-    const obj = node.childForFieldName('object');
-    const attr = node.childForFieldName('attribute');
-    if (obj && attr) {
-      return getMemberExpressionText(obj) + '.' + attr.text;
-    }
-  }
-  // PHP: member_access_expression with object + name fields
-  if (node.type === 'member_access_expression') {
-    const obj = node.childForFieldName('object');
-    const name = node.childForFieldName('name');
-    if (obj && name) {
-      return getMemberExpressionText(obj) + '.' + name.text;
-    }
-  }
-  return node.text;
-}
+// getMemberExpressionText and MEMBER_EXPRESSION_TYPES imported from ast-helpers.ts
 
 /** Identifier-like node types across all supported languages. */
 const IDENTIFIER_TYPES = new Set([
