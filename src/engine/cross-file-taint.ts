@@ -36,35 +36,8 @@ interface FunctionTaintSig {
   paramSinks: Map<number, SinkCategory[]>;
 }
 
-// ── AST helpers (mirrored from taint-tracker to keep module self-contained) ──
-
-function walkTree(node: any, callback: (n: any) => void): void {
-  callback(node);
-  const count: number = node.childCount;
-  for (let i = 0; i < count; i++) {
-    const child = node.child(i);
-    if (child) walkTree(child, callback);
-  }
-}
-
-function findNodes(node: any, type: string): any[] {
-  const result: any[] = [];
-  walkTree(node, (n) => {
-    if (n.type === type) result.push(n);
-  });
-  return result;
-}
-
-function getMemberExpressionText(node: any): string {
-  if (node.type === 'member_expression') {
-    const obj = node.childForFieldName('object');
-    const prop = node.childForFieldName('property');
-    if (obj && prop) {
-      return getMemberExpressionText(obj) + '.' + prop.text;
-    }
-  }
-  return node.text;
-}
+// ── Shared AST helpers ──
+import { walkTree, findNodes, getMemberExpressionText } from './ast-helpers.js';
 
 function containsTaintedRef(node: any, taintedVars: Set<string>): string | null {
   if (node.type === 'identifier' && taintedVars.has(node.text)) {
@@ -892,6 +865,7 @@ function buildExportedFunctionSignatures(
   exportedFunctions: Map<string, any>,
   rootNode: any,
   categories: Set<SinkCategory>,
+  sourceFilePath = '',
 ): Map<string, FunctionTaintSig> {
   const signatures = new Map<string, FunctionTaintSig>();
   const imports = collectFileImports(rootNode);
@@ -930,7 +904,7 @@ function buildExportedFunctionSignatures(
     if (paramSinks.size > 0) {
       signatures.set(exportName, {
         name: exportName,
-        filePath: '', // filled in by caller
+        filePath: sourceFilePath,
         paramSinks,
       });
     }
@@ -1022,9 +996,8 @@ export async function findCrossFileTaintPaths(
     const parsed = parsedFiles.get(filePath);
     if (!parsed) continue;
 
-    const sigs = buildExportedFunctionSignatures(exports, parsed.rootNode, categories);
+    const sigs = buildExportedFunctionSignatures(exports, parsed.rootNode, categories, filePath);
     for (const [exportName, sig] of sigs) {
-      sig.filePath = filePath;
       globalSignatures.set(`${filePath}::${exportName}`, sig);
     }
   }

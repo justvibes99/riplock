@@ -16,9 +16,9 @@ function getVersion(): string {
     // Works in both dev (tsx) and built (dist/) contexts
     const pkgPath = join(dirname(fileURLToPath(import.meta.url)), '..', 'package.json');
     const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'));
-    return pkg.version ?? '1.0.0';
+    return pkg.version ?? '2.0.0';
   } catch {
-    return '1.0.0';
+    return '2.0.0';
   }
 }
 

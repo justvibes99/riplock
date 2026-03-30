@@ -1,6 +1,6 @@
 import type { ScanResult } from '../checks/types.js';
 
-export function renderJson(result: ScanResult, version = '1.0.0'): string {
+export function renderJson(result: ScanResult, version = '2.0.0'): string {
   return JSON.stringify(
     {
       version,

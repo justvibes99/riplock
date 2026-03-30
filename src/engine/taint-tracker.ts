@@ -5,36 +5,7 @@ import type {
   SinkCategory,
   AstLanguage,
 } from '../checks/types.js';
-
-// ── Helpers ──────────────────────────────────────────────────────────
-
-/** Walk the entire AST subtree rooted at `node`, calling `callback` on every node. */
-function walkTree(node: any, callback: (n: any) => void): void {
-  callback(node);
-  const count: number = node.childCount;
-  for (let i = 0; i < count; i++) {
-    const child = node.child(i);
-    if (child) walkTree(child, callback);
-  }
-}
-
-/** Find all descendant nodes whose type matches `type`. */
-function findNodes(node: any, type: string): any[] {
-  const result: any[] = [];
-  walkTree(node, (n) => {
-    if (n.type === type) result.push(n);
-  });
-  return result;
-}
-
-/** Find all descendant nodes whose type matches any of the given types. */
-function findNodesByTypes(node: any, types: Set<string>): any[] {
-  const result: any[] = [];
-  walkTree(node, (n) => {
-    if (types.has(n.type)) result.push(n);
-  });
-  return result;
-}
+import { walkTree, findNodes, findNodesByTypes } from './ast-helpers.js';
 
 /** Node types that represent member/attribute access across languages. */
 const MEMBER_EXPRESSION_TYPES = new Set([

@@ -62,7 +62,7 @@ const SEVERITY_TO_SARIF_LEVEL: Record<Severity, string> = {
   low: 'note',
 };
 
-export function renderSarif(result: ScanResult, version = '1.0.0'): string {
+export function renderSarif(result: ScanResult, version = '2.0.0'): string {
   // Build rule definitions from all registered checks
   const usedCheckIds = new Set(result.findings.map((f) => f.checkId));
   const rules: SarifRule[] = allChecks

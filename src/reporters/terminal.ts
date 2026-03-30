@@ -20,7 +20,7 @@ const BAR_CHAR = '\u2588';
 // Max individual findings to show before grouping
 const GROUP_THRESHOLD = 3;
 
-export function renderTerminal(result: ScanResult, version = '1.0.0'): string {
+export function renderTerminal(result: ScanResult, version = '2.0.0'): string {
   const lines: string[] = [];
 
   lines.push('');

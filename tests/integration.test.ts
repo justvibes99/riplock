@@ -171,7 +171,7 @@ describe('Integration: JSON output', () => {
     const json = renderJson(result);
     const parsed = JSON.parse(json);
 
-    expect(parsed.version).toBe('1.0.0');
+    expect(parsed.version).toBe('2.0.0');
     expect(parsed.filesScanned).toBeGreaterThan(0);
     expect(parsed.stats.total).toBe(parsed.findings.length);
     expect(Array.isArray(parsed.findings)).toBe(true);
