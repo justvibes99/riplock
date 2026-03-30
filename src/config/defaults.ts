@@ -12,6 +12,7 @@ export function defaultConfig(overrides: Partial<ResolvedConfig> = {}): Resolved
     format: 'terminal',
     skipDeps: false,
     verbose: false,
+    scanDeps: false,
     ...overrides,
   };
 }

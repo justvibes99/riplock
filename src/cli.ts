@@ -36,6 +36,7 @@ export async function run(argv: string[]): Promise<void> {
     .option('--ignore <checkId...>', 'Check IDs to skip')
     .option('--exclude <patterns...>', 'Glob patterns to exclude')
     .option('--no-deps', 'Skip dependency audit')
+    .option('--scan-deps', 'Scan installed dependencies for supply chain attack indicators')
     .option('--verbose', 'Show timing and file list')
     .option('--list-checks', 'List all available checks and exit')
     .parse(argv);
@@ -68,8 +69,11 @@ export async function run(argv: string[]): Promise<void> {
       : undefined) as Severity | undefined,
     format: (opts.sarif ? 'sarif' : opts.json ? 'json' : 'terminal') as 'terminal' | 'json' | 'sarif',
     skipDeps: opts.deps === false,
+    scanDeps: opts.scanDeps ?? false,
     verbose: opts.verbose ?? false,
     ignorePatterns: opts.exclude ?? [],
+    // scan-deps mode uses a higher file size limit (2MB) since deps can be larger
+    ...(opts.scanDeps ? { maxFileSizeBytes: 2_097_152 } : {}),
   };
 
   const config = await loadConfig(directory, cliOverrides);
@@ -115,6 +119,7 @@ function printCheckCatalog(): void {
     'data-exposure', 'crypto', 'dependencies', 'framework',
     'uploads', 'dos', 'config',
     'python', 'go', 'ruby', 'php', 'docker', 'cicd', 'iac',
+    'supply-chain',
   ];
 
   for (const cat of categoryOrder) {

@@ -40,6 +40,10 @@ import { cicdChecks } from './cicd/index.js';
 import { iacChecks } from './iac/index.js';
 // AST (taint-tracked)
 import { astChecks } from './ast/index.js';
+// Supply Chain
+import { supplyChainChecks } from './supply-chain/index.js';
+
+export { supplyChainChecks } from './supply-chain/index.js';
 
 export const allChecks: CheckDefinition[] = [
   ...secretChecks,

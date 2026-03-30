@@ -47,6 +47,7 @@ export async function loadConfig(
     minSeverity,
     ignorePatterns,
     skipDeps: cliOverrides.skipDeps ?? fileConfig.skipDeps ?? false,
+    scanDeps: cliOverrides.scanDeps ?? false,
     maxFileSizeBytes: fileConfig.maxFileSize ?? cliOverrides.maxFileSizeBytes,
   });
 }

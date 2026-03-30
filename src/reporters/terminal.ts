@@ -24,7 +24,11 @@ export function renderTerminal(result: ScanResult, version = '2.0.0'): string {
   const lines: string[] = [];
 
   lines.push('');
-  lines.push(pc.bold(`  riplock v${version}`) + pc.dim(` \u2014 scanning ${result.projectRoot}`));
+  if (result.scanDeps) {
+    lines.push(pc.bold(`  riplock v${version}`) + pc.dim(` \u2014 scanning dependencies in ${result.projectRoot}`));
+  } else {
+    lines.push(pc.bold(`  riplock v${version}`) + pc.dim(` \u2014 scanning ${result.projectRoot}`));
+  }
   lines.push('');
   lines.push(pc.dim(`  Scanned ${result.filesScanned} files with ${result.checksRun} checks in ${(result.totalDurationMs / 1000).toFixed(1)}s`));
   lines.push('');

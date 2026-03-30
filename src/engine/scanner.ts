@@ -11,8 +11,8 @@ import type {
   ScanResult,
   ScanStats,
 } from '../checks/types.js';
-import { allChecks } from '../checks/index.js';
-import { discoverFiles, groupByExtension, loadFileContent, loadFileLines } from './file-discovery.js';
+import { allChecks, supplyChainChecks } from '../checks/index.js';
+import { discoverFiles, discoverDepFiles, groupByExtension, loadFileContent, loadFileLines } from './file-discovery.js';
 import { runChecks } from './check-runner.js';
 import { loadGitignore, compileGitignore } from '../utils/gitignore.js';
 import { detectFrameworks } from '../utils/frameworks.js';
@@ -30,8 +30,10 @@ export async function scan(projectRoot: string, config: ResolvedConfig): Promise
     }
   };
 
-  // Discover files
-  const files = await discoverFiles(root, config);
+  // Discover files: dep scan uses a separate discovery function
+  const files = config.scanDeps
+    ? await discoverDepFiles(root, config)
+    : await discoverFiles(root, config);
   const filesByExtension = groupByExtension(files);
 
   // Load project metadata
@@ -78,14 +80,19 @@ export async function scan(projectRoot: string, config: ResolvedConfig): Promise
     },
   };
 
-  // Load rule-engine checks (built-in + project-level custom rules)
-  const ruleChecks = await loadRules(root);
-  const allChecksWithRules = [...allChecks, ...ruleChecks];
+  // Select checks: in scan-deps mode, only run supply-chain checks
+  let checksToRun;
+  if (config.scanDeps) {
+    checksToRun = [...supplyChainChecks];
+  } else {
+    const ruleChecks = await loadRules(root);
+    checksToRun = [...allChecks, ...ruleChecks];
+  }
 
   checkTimeout();
 
-  // Run all checks
-  const findings = await runChecks(allChecksWithRules, ctx);
+  // Run checks
+  const findings = await runChecks(checksToRun, ctx);
 
   checkTimeout();
 
@@ -107,8 +114,9 @@ export async function scan(projectRoot: string, config: ResolvedConfig): Promise
     stats,
     totalDurationMs: performance.now() - start,
     filesScanned: files.size,
-    checksRun: allChecksWithRules.length,
+    checksRun: checksToRun.length,
     projectRoot: root,
+    scanDeps: config.scanDeps || undefined,
   };
 }
 

@@ -19,7 +19,8 @@ export type CheckCategory =
   | 'php'
   | 'docker'
   | 'cicd'
-  | 'iac';
+  | 'iac'
+  | 'supply-chain';
 
 export interface SourceLocation {
   filePath: string;
@@ -97,6 +98,7 @@ export interface ResolvedConfig {
   format: 'terminal' | 'json' | 'sarif';
   skipDeps: boolean;
   verbose: boolean;
+  scanDeps: boolean;
 }
 
 // --- Check definitions ---
@@ -201,6 +203,7 @@ export interface ScanResult {
   filesScanned: number;
   checksRun: number;
   projectRoot: string;
+  scanDeps?: boolean;
 }
 
 export interface ScanStats {

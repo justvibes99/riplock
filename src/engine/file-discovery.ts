@@ -118,6 +118,123 @@ export async function discoverFiles(
   return files;
 }
 
+/**
+ * Ignore patterns for dependency scanning.
+ * We skip binary/media files but NOT the dep directories themselves.
+ */
+const DEP_SCAN_IGNORE = [
+  '**/.git/**',
+  '**/*.min.js',
+  '**/*.min.css',
+  '**/*.map',
+  '**/*.lock',
+  '**/package-lock.json',
+  '**/yarn.lock',
+  '**/pnpm-lock.yaml',
+  '**/bun.lockb',
+  '**/*.woff',
+  '**/*.woff2',
+  '**/*.ttf',
+  '**/*.eot',
+  '**/*.ico',
+  '**/*.png',
+  '**/*.jpg',
+  '**/*.jpeg',
+  '**/*.gif',
+  '**/*.svg',
+  '**/*.webp',
+  '**/*.avif',
+  '**/*.mp3',
+  '**/*.mp4',
+  '**/*.webm',
+  '**/*.zip',
+  '**/*.tar.gz',
+  '**/*.tgz',
+  '**/*.pdf',
+];
+
+/**
+ * Directories that contain installed dependencies.
+ * We scan only inside these when --scan-deps is active.
+ */
+const DEP_DIRECTORIES = [
+  'node_modules',
+  'site-packages',
+  'vendor',
+  'venv/lib',
+];
+
+/**
+ * Discover files ONLY inside dependency directories (node_modules, site-packages, etc.).
+ * Used by --scan-deps mode so the normal project scan is completely unaffected.
+ */
+export async function discoverDepFiles(
+  projectRoot: string,
+  config: ResolvedConfig,
+): Promise<Map<string, FileEntry>> {
+  const ignorePatterns = [...DEP_SCAN_IGNORE, ...config.ignorePatterns];
+
+  // Scan each dep directory that exists
+  const allPaths: string[] = [];
+  for (const depDir of DEP_DIRECTORIES) {
+    const paths = await fg(`${depDir}/**/*`, {
+      cwd: projectRoot,
+      ignore: ignorePatterns,
+      dot: false,
+      absolute: false,
+      onlyFiles: true,
+      followSymbolicLinks: false,
+    });
+    allPaths.push(...paths);
+  }
+
+  const files = new Map<string, FileEntry>();
+
+  await Promise.all(
+    allPaths.map(async (relPath) => {
+      const absPath = resolve(projectRoot, relPath);
+      const base = basename(relPath);
+      let ext = extname(relPath).toLowerCase().slice(1);
+
+      // Same extension normalization as discoverFiles
+      if (base.startsWith('.env')) {
+        ext = 'env';
+      }
+      if (!ext && base.startsWith('.')) {
+        const withoutDot = base.slice(1);
+        const innerExt = extname(withoutDot).toLowerCase().slice(1);
+        ext = innerExt || withoutDot.toLowerCase();
+      }
+      if (base.endsWith('.rules')) {
+        ext = 'rules';
+      }
+
+      if (BINARY_EXTENSIONS.has(`.${ext}`)) return;
+
+      try {
+        const st = await stat(absPath);
+        // Higher limit for deps: 2MB instead of 1MB
+        if (st.size > config.maxFileSizeBytes) return;
+        if (st.size === 0) return;
+
+        const entry: FileEntry = {
+          absolutePath: absPath,
+          relativePath: relPath,
+          sizeBytes: st.size,
+          extension: ext,
+          basename: basename(relPath),
+        };
+
+        files.set(relPath, entry);
+      } catch {
+        // skip unreadable files
+      }
+    }),
+  );
+
+  return files;
+}
+
 export async function loadFileContent(entry: FileEntry): Promise<string> {
   if (entry.content !== undefined) return entry.content;
   try {
